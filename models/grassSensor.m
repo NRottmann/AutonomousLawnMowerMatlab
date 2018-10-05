@@ -1,38 +1,50 @@
-function [sensorData] = grassSensor(p,polyMap)
-% This function defines the sensor setting for the lawn mower
-%
-% Syntax:
-%       [sensorData] = grassSensor(p,mapPoly)
-%
-% Input:
-%   p:          Actual Pose of the vehicle, [x y phi]^T
-%   polyMap:    The map as Polygon
-%
-% Output:
-%   sensorData: Struct with sensor Data
-%
-% Date:     01.10.2018
+classdef GrassSensor
+% Grass sensor class
+% Methods
+% ...
+% Date:     04.10.2018
 % Author:   Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
 
-% Position of the sensors in the coordinates of the lawn mower
-out = get_config('sensorPositions');
-posRight =  out.posRight;
-posLeft = out.posLeft;
+    properties
+        PolyMap;
+        PosRight;
+        PosLeft;
+    end
+    
+    methods
+        function obj = GrassSensor(polyMap)
+            obj.PolyMap = polyMap;
+            % Position of the sensors in the coordinates of the lawn mower
+            out = get_config('sensorPositions');
+            obj.PosRight =  out.posRight;
+            obj.PosLeft = out.posLeft; 
+        end
+        
+        function sensorData = measure(obj,pose)
+            % This function defines the sensor setting for the lawn mower
+            %
+            % Syntax:
+            %       sensorData = grassSensor(obj,pose)
+            %
+            % Input:
+            %   obj:            Object of the class
+            %   pose:           Actual Pose of the vehicle, [x y phi]^T
+            %
+            % Output:
+            %   sensorData: Struct with sensor Data
+            %
 
-% Orientation Matrix
-R = [cos(p(3)) -sin(p(3)); sin(p(3)) cos(p(3))];
+            % Orientation Matrix
+            R = [cos(pose(3)) -sin(pose(3)); sin(pose(3)) cos(pose(3))];
 
-% Caluclate the actual positions of the sensors
-pR = p(1:2) + R*posRight;
-pL = p(1:2) + R*posLeft;
+            % Caluclate the actual positions of the sensors
+            pR = pose(1:2) + R*obj.PosRight;
+            pL = pose(1:2) + R*obj.PosLeft;
 
-% Define variables
-sensorData.left = 0;
-sensorData.right = 0;
-
-% Make the measurements
-sensorData.right = inpolygon(pR(1),pR(2),polyMap.x,polyMap.y);
-sensorData.left = inpolygon(pL(1),pL(2),polyMap.x,polyMap.y);
-
+            % Make the measurements
+            sensorData.right = inpolygon(pR(1),pR(2),obj.PolyMap.x,obj.PolyMap.y);
+            sensorData.left = inpolygon(pL(1),pL(2),obj.PolyMap.x,obj.PolyMap.y);
+        end
+    end
 end
 

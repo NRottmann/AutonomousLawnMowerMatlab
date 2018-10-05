@@ -5,8 +5,6 @@ classdef ParticleFilter
     %   obj = update(obj,odometryData,sensorData)
     %   posParticles = getParticlePosition(obj)
     %   posParticles = getParticlePositionOrientationWeight(obj)
-%     %   obj = updateParticleProbabiltyMaps(obj)
-%     %   probMap = getParticleProbabilityMaps(obj)
     %   rating = getParticleRating(obj)
     %   [mu,sigma] = getMeanVariance(obj)
     
@@ -20,15 +18,13 @@ classdef ParticleFilter
                                         % row is one particle and contains
                                         % [x; y; phi; weight]
         PolyMap;
-% 
-%         ParticleProbabilityMaps;        % Cell array for probability maps
-%                                         % for each particle
-%         ProbabilityMap;                 % Fused Probability Map
-                                        
+
+        GrassSensor;                    % Instance of the class GrassSensor
+        OdometryModel;                  % Instance of the class OdometryModel
     end
     
     methods
-        function obj = ParticleFilter(numParticles,polyMap,p0)
+        function obj = ParticleFilter(numParticles,polyMap,p0,grassSensor,odometryModel)
             % This is the constructor of the class
             % Syntax:
             %       obj = ParticleFilter(nParticles,polyMap,p0)
@@ -49,6 +45,8 @@ classdef ParticleFilter
             % Allocate Parameters
             obj.NumParticles = numParticles;
             obj.PolyMap = polyMap;
+            obj.GrassSensor = grassSensor;
+            obj.OdometryModel = odometryModel;
             
             % Initialize Particles
             obj.Particles = zeros(4, numParticles(2));
@@ -68,20 +66,9 @@ classdef ParticleFilter
                                           rand()*2*pi; 1/obj.ActParticles];
                 end   
             end
-            
-            % TODO: Add method to generate sufficient accuarte occupancy
-            % grid maps based on the polyMap
-%             % Generate Probability Maps for the max number of Particles
-%             obj.ParticleProbabilityMaps = cell(numberParticles(2),1);
-%             for i=1:1:numberParticles(2)
-%                 obj.ParticleProbabilityMaps{i} = zeros(map.GridSize);
-%             end
-%             
-%             % Generate Probability Map
-%             obj.ProbabilityMap = zeros(map.GridSize);
         end
         
-        function obj = update(obj,odometryData,sensorData)
+        function obj = update(obj,sensorData,motionData,p0)
             % This is the update function of the class which holds the
             % particle filter algorithm
             % Syntax:
@@ -93,25 +80,23 @@ classdef ParticleFilter
             % Output:
             %   obj:            Instance of the class ParticleFilter
             
+            %% Calculate odometry data
+            obj.OdometryModel = obj.OdometryModel.odometryData(p0, motionData);
+            
+            %% Update
             % For all Particles, update them according to odometryData and
             % allocate weights according to measurement data
+            tic;
             for i = 1:1:obj.ActParticles
-                % TODO: Is the check required? Check if Particle is 
-                % actually used
-                if obj.Particles(4, i) == -1
-                    continue;
-                end
-                
                 % Move Particle, add noise
-                obj.Particles(1:3,i) = odometryPose(obj.Particles(1:3,i),...
-                                            odometryData, true);
+                obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true);
                                         
                 % Allocate Weights, therefore check what the sensor should
                 % measure depending on the particles position and compare
                 % this with the actual measurement
                 out = get_config('particleFilter');
                 weightFactors =  out.weightFactors;
-                [sensorParticleData] = grassSensor(obj.Particles(1:3,i),obj.PolyMap);     
+                [sensorParticleData] = obj.GrassSensor.measure(obj.Particles(1:3,i));
                 if ((sensorParticleData.right == sensorData.right) && (sensorParticleData.left == sensorData.left))
                     obj.Particles(4,i) = weightFactors(1);
                 elseif ((sensorParticleData.right == sensorData.right) || (sensorParticleData.left == sensorData.left))
@@ -121,12 +106,13 @@ classdef ParticleFilter
                 end 
             end
             
-            % Now we are doing the resampling of the particles based on the
-            % calculated weights. Therefore we first normalize the weights
-            % and calculate the effective number of particles
+            % Normalize weights and calculate effective number of particles
             obj.Particles(4,:) = obj.Particles(4,:) / sum(obj.Particles(4,:));
             N_eff = 1 / sum(obj.Particles(4,:).^2);
-
+            disp('Update step: ')
+            toc
+            
+            %% Resampling
             % Do only resampling if N_eff < a*N
             out = get_config('particleFilter');
             treshResample =  out.treshResample;
@@ -143,29 +129,41 @@ classdef ParticleFilter
                 else
                     scale = obj.NumParticles(1) + ceil(scale);
                 end
-                newCalculatedParticles = scale;
+                newNumParticles = scale;
                 
                 % Create Weighting vector
                 weightVec = zeros(obj.ActParticles+1,1);
                 for i=1:1:obj.ActParticles
                     weightVec(i+1) = weightVec(i) + obj.Particles(4,i);
                 end
-                % Random resampling
+                % Systematic resampling
+                tic;
+                X = (0:1/newNumParticles:(newNumParticles-1)/newNumParticles) + rand();
+                X(X > 1) = X(X > 1) - 1;
+                [numSamples,~] = histcounts(X,weightVec);
                 tempParticles = zeros(4,obj.NumParticles(2));
-%                 tempProbMap = cell(obj.NumParticles(2),1);
-                for i=1:1:newCalculatedParticles
-                    randNum = rand();
-                    k = 1;
-                    while (randNum > weightVec(k+1))
-                        k = k + 1;
+                idx = 1;
+                for i=1:1:newNumParticles
+                    for j=1:1:numSamples(i)
+                        tempParticles(:,idx) = obj.Particles(:,i);
+                        idx = idx + 1;
                     end
-                    tempParticles(:,i) = obj.Particles(:,k);
-%                     tempProbMap{i} = obj.ParticleProbabilityMaps{k};
                 end
+                disp('Systematic Resampling: ');
+                toc
+%                 % Random resampling
+%                 tempParticles = zeros(4,obj.NumParticles(2));
+%                 for i=1:1:newNumParticles
+%                     randNum = rand();
+%                     k = 1;
+%                     while (randNum > weightVec(k+1))
+%                         k = k + 1;
+%                     end
+%                     tempParticles(:,i) = obj.Particles(:,k);
+%                 end
                 % Allocate Particles and set new NumParticles
                 obj.Particles = tempParticles;
-%                 obj.ParticleProbabilityMaps = tempProbMap;
-                obj.ActParticles = newCalculatedParticles;
+                obj.ActParticles = newNumParticles;
             end            
         end
              
@@ -180,51 +178,8 @@ classdef ParticleFilter
             % weight and the orientation 
             posParticles = obj.Particles(:,1:obj.ActParticles);
         end
-%         
-%         function obj = updateParticleProbabiltyMaps(obj)
-%             % Function to update the Probability Map of the particle Filter
-%             for i=1:1:obj.ActParticles
-%                 if (obj.Particles(1,i) > obj.PolyMap.XWorldLimits(1) ...
-%                     && obj.Particles(1,i) < obj.PolyMap.XWorldLimits(2) ...
-%                     && obj.Particles(2,i) > obj.PolyMap.YWorldLimits(1) ...
-%                     && obj.Particles(2,i) < obj.PolyMap.YWorldLimits(2) ...
-%                     && getOccupancy(obj.PolyMap,[obj.Particles(1,i) obj.Particles(2,i)]))
-%                     ind_x = ceil(obj.Particles(1,i)*obj.Map.Resolution);
-%                     ind_y = ceil(obj.Particles(2,i)*obj.Map.Resolution);
-%                     obj.ParticleProbabilityMaps{i}(ind_x,ind_y) = 1;
-%                 end
-%             end
-%         end
-        
-%         function obj = updateProbabilityMap(obj)
-%             % This function updates a combined probability map. Make sure
-%             % you call that function properly in order to avoid a too high
-%             % or low update rate
-%             probMap = zeros(obj.Map.GridSize);
-%             for i=1:1:obj.CalculatedParticles
-%                 if (obj.Particles(1,i) > obj.Map.XWorldLimits(1) ...
-%                     && obj.Particles(1,i) < obj.Map.XWorldLimits(2) ...
-%                     && obj.Particles(2,i) > obj.Map.YWorldLimits(1) ...
-%                     && obj.Particles(2,i) < obj.Map.YWorldLimits(2) ...
-%                     && getOccupancy(obj.Map,[obj.Particles(1,i) obj.Particles(2,i)]))
-%                     ind_x = ceil(obj.Particles(1,i)*obj.Map.Resolution);
-%                     ind_y = ceil(obj.Particles(2,i)*obj.Map.Resolution);
-%                     probMap(ind_x,ind_y) = probMap(ind_x,ind_y) + (1/obj.CalculatedParticles);
-%                 end
-%             end
-%             obj.ProbabilityMap = obj.ProbabilityMap + probMap - obj.ProbabilityMap .* probMap;  
-%         end
-        
-%         function probMap = getParticleProbabilityMaps(obj)
-%             % Gives back the probability map based on each idivdual 
-%             % probability map for each particle
-%             probMap = zeros(obj.Map.GridSize);
-%             for i=1:1:obj.CalculatedParticles
-%                 probMap = probMap + obj.ParticleProbabilityMaps{i};
-%             end
-%             probMap = probMap / obj.CalculatedParticles;
-%         end
-        
+     
+        % TODO: Is this really useful or exists their already an idea?
         function rating = getParticleRating(obj)
             % Compute the likelihood of the position
             

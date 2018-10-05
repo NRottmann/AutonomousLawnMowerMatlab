@@ -13,7 +13,9 @@ function [s] = sampleNormalDistribution(a)
 % Date:     01.10.2018
 % Author:   Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
 
-s = (a/6) * sum(2*rand(10,1) - 1);
+% s = (a/6) * sum(2*rand(10,1) - 1);
+
+s = normrnd(0,a);
 
 end
 
