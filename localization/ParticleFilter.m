@@ -1,4 +1,7 @@
 classdef ParticleFilter
+    % TODO: This particle filter algorithm has still to be reviewed and
+    % corrected
+    %
     % Particle Filter class for autonomous lawn mower
     % Methods:
     %   ParticleFilter(numParticles,polyMap,p0)
@@ -86,7 +89,6 @@ classdef ParticleFilter
             %% Update
             % For all Particles, update them according to odometryData and
             % allocate weights according to measurement data
-            tic;
             for i = 1:1:obj.ActParticles
                 % Move Particle, add noise
                 obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true);
@@ -109,8 +111,6 @@ classdef ParticleFilter
             % Normalize weights and calculate effective number of particles
             obj.Particles(4,:) = obj.Particles(4,:) / sum(obj.Particles(4,:));
             N_eff = 1 / sum(obj.Particles(4,:).^2);
-            disp('Update step: ')
-            toc
             
             %% Resampling
             % Do only resampling if N_eff < a*N

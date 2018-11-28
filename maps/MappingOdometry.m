@@ -1,4 +1,7 @@
 classdef MappingOdometry
+    % This is the mapping approach as presented in the rejected paper to
+    % icra
+    %
     % Mapping class for autonomous lawn mower with odometry only data
     % Methods:
     %  ...

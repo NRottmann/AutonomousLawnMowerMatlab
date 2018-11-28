@@ -1,4 +1,6 @@
 classdef SPBF
+    % TODO: This symbiotic particle Filter algorithm has still to be reviewed and correct 
+    %
     % Sigma-Point Bayesian Filter class for autonomous lawn mower
     % Methods:
     %   ...

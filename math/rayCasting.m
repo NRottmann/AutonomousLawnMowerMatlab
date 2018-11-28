@@ -1,6 +1,7 @@
 function inside = rayCasting(p, polyMap)
     % Checks if the point p lies within the polygon defined by polyMap
-
+    % TODO: Improve this!
+    
     x_out = [1000;1000];
     
     inside = true;

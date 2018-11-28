@@ -1,23 +1,36 @@
 classdef GrassSensor
-% Grass sensor class
+% Grass sensor class. Here we create the measurements based on the given
+% map. A sensor gives back 1 if grass has been detected and 0 if not.
+%
 % Methods
-% ...
-% Date:     04.10.2018
+%   GrassSensor(polyMap)
+%       Constructor of the class
+%   sensorData = measure(obj,pose)
+%       gives back noise corrupted measurements data depending on the pose
+%       of the robot
+%
+% Date:     28.11.2018
 % Author:   Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
 
     properties
-        PolyMap;
-        PosRight;
-        PosLeft;
+        PolyMap;            % Map of the environment
+        PosRight;           % Position of the right sensor relative to the body frame
+        PosLeft;            % Position of the left sensor relative to the body frame
+        Noise;              % Sensor noise
     end
     
     methods
         function obj = GrassSensor(polyMap)
+            % Constructor
+            
+            % Store the map of the environment
             obj.PolyMap = polyMap;
-            % Position of the sensors in the coordinates of the lawn mower
-            out = get_config('sensorPositions');
+            
+            % Load parameters
+            out = get_config('Sensor');
             obj.PosRight =  out.posRight;
-            obj.PosLeft = out.posLeft; 
+            obj.PosLeft = out.posLeft;
+            obj.Noise = out.noise;
         end
         
         function sensorData = measure(obj,pose)
@@ -31,7 +44,7 @@ classdef GrassSensor
             %   pose:           Actual Pose of the vehicle, [x y phi]^T
             %
             % Output:
-            %   sensorData: Struct with sensor Data
+            %   sensorData:     Struct with sensor Data
             %
 
             % Orientation Matrix
@@ -44,6 +57,14 @@ classdef GrassSensor
             % Make the measurements
             sensorData.right = inpolygon(pR(1),pR(2),obj.PolyMap.x,obj.PolyMap.y);
             sensorData.left = inpolygon(pL(1),pL(2),obj.PolyMap.x,obj.PolyMap.y);
+            
+            % Corrupt measurements
+            if rand() < 0.5*obj.Noise
+                sensorData.right = ~sensorData.right;
+            end
+            if rand() < 0.5*obj.Noise
+                sensorData.left = ~sensorData.left;
+            end
         end
     end
 end

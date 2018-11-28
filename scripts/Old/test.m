@@ -12,7 +12,7 @@ clc;
 %% Choose Parameters
 pose = [4; 8; 0];                   % start pose
 pose_store = pose;
-numParticles = [5000; 5000];          % TODO: add this to the config file
+numParticles = [200; 200];          % TODO: add this to the config file
 map_name = 'map_01.mat';         	% Choose the map which should be loaded
 load(map_name); 
 
@@ -20,7 +20,7 @@ load(map_name);
 ctrl = WallFollower();
 grassSensor = GrassSensor(polyMap);
 odometryModel = OdometryModel();
-pf = ParticleFilter(numParticles,polyMap,[pose; 0], grassSensor, odometryModel);
+pf = ParticleFilter(numParticles,polyMap,[pose; 1], grassSensor, odometryModel);
 
 %% Do the first plot
 figure(1)
