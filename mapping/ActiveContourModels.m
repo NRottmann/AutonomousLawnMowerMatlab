@@ -1,4 +1,4 @@
-classdef MappingOdometry
+classdef ActiveContourModels
     % This is the mapping approach as presented in the rejected paper to
     % icra
     %
@@ -24,7 +24,7 @@ classdef MappingOdometry
     end
     
     methods
-        function obj = MappingOdometry(odoData)
+        function obj = ActiveContourModels(odoData)
             % This is the constructor of the class
             % Syntax:
             %       obj = MappingOdometry(odometryData)

@@ -9,15 +9,17 @@ function [results] = simulation(polyMap,T,mode)
     %   Time:           Simulation time in seconds
     %   Mode:           There are different simulation modes. Please choose
     %                   one of the following
-    %                   1:  wall following mode, gives back the path
+    %                   1: wall following mode, gives back the path
     %                   travelled
-    %                   2: TODO
+    %                   2: mapping mode, we use the wall follower to drive
+    %                   along the boundary line and then create a map using
+    %                   the presented methods
     %
     % Output:
     %   results:        Structure with the results of the simulation. The
     %                   content depends on the chosen mode
     
-    if mode == 1
+    if (mode == 1 || mode == 2)
         % Initialize classes
         grassSensor = GrassSensor(polyMap);
         odometryModel = OdometryModel();
@@ -42,8 +44,18 @@ function [results] = simulation(polyMap,T,mode)
             [odometryModel,~] = odometryData(odometryModel, truePose(:,i), motionData);
             estPose(:,i+1) = odometryPose(odometryModel, estPose(:,i), true, 1);
         end
-        results.truePose = truePose;
-        results.estPose = estPose;
+        if mode == 2
+            % Pose graph optimization
+            poseGraphOptimization = PoseGraphOptimization(estPose(1:2,:));
+            [poseGraph,updatedGraph] = generateMap(poseGraphOptimization);
+            results.truePose = truePose;
+            results.poseGraph = poseGraph;
+            results.estPose = estPose;
+            results.poseGraph = updatedGraph;
+        else
+            results.truePose = truePose;
+            results.estPose = estPose;
+        end
     else
         error('simulation: Wrong mode chosen!');
     end

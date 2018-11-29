@@ -9,4 +9,10 @@ load(map_name);
 
 %% Do the simulation
 T = 1800;
-[results] = simulation(polyMap,T,1);
+[results] = simulation(polyMap,T,2);
+
+%% Plot
+figure(1)
+show(results.poseGraph)
+
+

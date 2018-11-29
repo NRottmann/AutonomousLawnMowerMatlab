@@ -37,10 +37,10 @@ switch caseString
     case 'system'
         out.dt = 0.05;
     case 'mapping'
-        out.L_min = 0.5;
-        out.e_max = 0.001;
-        out.L_nh = 10;
-        out.C_min = 0.3;
+        out.l_min = 0.1;
+        out.e_max = 0.00001;
+        out.l_nh = 15;
+        out.c_min = 0.15;
         out.M = 100;
         out.alpha = 20;
         out.beta = 10;
