@@ -1,0 +1,8 @@
+Garden01:
+	Defined Test-Environment in the courtyard
+
+Garden02:
+	The abbreviated lawn at my parents home
+
+Garden03:
+	The lawn in the courtyard
