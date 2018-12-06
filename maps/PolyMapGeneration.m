@@ -9,9 +9,23 @@
 % polyMap.y = [0 0 2 2 0 0 6 7 4 4 7 7 6 6 -3 -3 0];
 
 % Map 03
-polyMap.x = [0 30 30 10 10 30 30 0 0];
-polyMap.y = [0 0 10 10 25 25 30 30 0];
+% polyMap.x = [0 30 30 10 10 30 30 0 0];
+% polyMap.y = [0 0 10 10 25 25 30 30 0];
 
+% Map 4
+X1 = [0 16 16 10 10 22 22 10];
+Y1 = [0 0 8 8 12 12 18 18];
+N = 20;
+n = 0:1:N;
+X2 = cos(n/N*pi)*5 + 5;
+Y2 = sin(n/N*pi)*5 + 24;
+X3 = [-6 -6 0 0 -6 -6 0 0 -6 -6 0 0];
+Y3 = [24 20 20 16 16 12 12 8 8 4 4 0];
+polyMap.x = [X1 X2 X3];
+polyMap.y = [Y1 Y2 Y3];
+
+
+%%
 polyMap.XMapLimits = [min(polyMap.x) max(polyMap.x)];
 polyMap.YMapLimits = [min(polyMap.y) max(polyMap.y)];
 
@@ -27,4 +41,4 @@ end
 
 plot(polyMap.x,polyMap.y)
 
-save('map_03.mat','polyMap');
+save('map_04.mat','polyMap');

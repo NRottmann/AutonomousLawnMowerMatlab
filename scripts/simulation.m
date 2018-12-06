@@ -47,11 +47,13 @@ function [results] = simulation(polyMap,T,mode)
         if mode == 2
             % Pose graph optimization
             poseGraphOptimization = PoseGraphOptimization(estPose(1:2,:));
-            [poseGraph,updatedGraph] = generateMap(poseGraphOptimization);
+            [matlabGraph,tutorialGraph,adjustedTutorialGraph,lagoGraph] = generateMap(poseGraphOptimization);
             results.truePose = truePose;
-            results.poseGraph = poseGraph;
+            results.matlabGraph = matlabGraph;
+            results.tutorialGraph = tutorialGraph;
+            results.adjustedTutorialGraph = adjustedTutorialGraph;
+            results.lagoGraph = lagoGraph;
             results.estPose = estPose;
-            results.poseGraph = updatedGraph;
         else
             results.truePose = truePose;
             results.estPose = estPose;
