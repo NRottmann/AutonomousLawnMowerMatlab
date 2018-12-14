@@ -59,17 +59,25 @@ classdef OdometryModel
             % Calculate Position Estimate from the odometry data
             ds = (motionData.lR - motionData.lL ) / 2;
             dphi = (motionData.lR + motionData.lL ) / (2*obj.L);
- 
-            p1 = p0 + [cos(p0(3)), 0; sin(p0(3)), 0; 0, 1] * [ds; dphi];
 
             % Use the odometry model from "Probabilistic Robotics" in order to add 
             % convenient noise
-            obj.DeltaR1 = atan2(p1(2) - p0(2), p1(1) - p0(1)) - p0(3);
-            obj.DeltaT = sqrt((p0(1)-p1(1))^2 + (p0(2)-p1(2))^2);
-            if abs(obj.DeltaR1) > 0.1     % if deltaR1 is unrealistic high, then atan2 failed
-                obj.DeltaR1 = 0.5 * (p1(3) - p0(3));
+            dp = [cos(p0(3)), 0; sin(p0(3)), 0; 0, 1] * [ds; dphi];
+            if ds >= 0
+                obj.DeltaR1 = atan2(dp(2), dp(1)) - p0(3);
+                obj.DeltaT = sqrt(dp(1)^2 + dp(2)^2);
+                if abs(obj.DeltaR1) > abs(dp(3))     % if deltaR1 is unrealistic high, then atan2 failed
+                    obj.DeltaR1 = 0.5 * dp(3);
+                end
+                obj.DeltaR2 = dp(3) - obj.DeltaR1;
+            else
+            	obj.DeltaR1 = atan2(-dp(2), -dp(1)) - p0(3);
+                obj.DeltaT = -sqrt(dp(1)^2 + dp(2)^2);
+                if abs(obj.DeltaR1) > abs(dp(3))     % if deltaR1 is unrealistic high, then atan2 failed
+                    obj.DeltaR1 = 0.5 * dp(3);
+                end
+                obj.DeltaR2 = dp(3) - obj.DeltaR1;
             end
-            obj.DeltaR2 = p1(3) - p0(3) - obj.DeltaR1;
             
             odometryData.DeltaR1 = obj.DeltaR1;
             odometryData.DeltaT = obj.DeltaT;
