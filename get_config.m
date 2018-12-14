@@ -26,11 +26,11 @@ switch caseString
         out.a = [sqrt(0.0012),sqrt(0.001),sqrt(0.0057),sqrt(0.0032),sqrt(0.0035),sqrt(0.0046)];     % Standard deviation parameters
         % out.a = [0.1,0.1,0.1,0.1,0.1,0.1];
     case 'mowerParameter'
-        out.L = 0.1845;
+        out.L = 0.1826;
+        out.dR = 0.2147;
+        out.dL = 0.2144;
     case 'odometryModelNoise'
-        % out.a = [0.0072,0.0017,0.0010,0.0003];
-        out.a = [sqrt(0.0072),sqrt(0.0017),sqrt(0.0010),sqrt(0.0003)];
-        % out.a = [0.1,0.1,0.1,0.1];
+        out.a = [0.0254, 0.0111, 0.0107, 0.0097];
     case 'particleFilter'
         out.weightFactors = [1.0,0.1,0.01];
         out.treshResample = 0.9;
@@ -38,9 +38,9 @@ switch caseString
         out.dt = 0.05;
     case 'mapping'
         out.l_min = 0.1;
-        out.e_max = 0.00001;
-        out.l_nh = 15;
-        out.c_min = 0.15;
+        out.e_max = 0.001;
+        out.l_nh = 50;
+        out.c_min = 0.3;
         out.M = 100;
         out.alpha = 20;
         out.beta = 10;
