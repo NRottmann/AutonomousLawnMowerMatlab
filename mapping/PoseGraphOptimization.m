@@ -7,7 +7,7 @@ classdef PoseGraphOptimization
     %       This is tne constructot of the class
     
     % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
-    % 29.11.2018
+    % 24.01.2018
     
     properties
         PathData;       % Data retieved by driving with the vehicle along the boundary line
@@ -17,16 +17,20 @@ classdef PoseGraphOptimization
         L_nh;           % Parameter for correlation calculation
         C_min;
         M;
-
+        Gamma1;
+        Gamma2;
     end
     
     methods
         function obj = PoseGraphOptimization(pathData)
             % This is the constructor of the class
             
-            % TODO: Add size check, matrxi has to be 2 x N
+            % Check size, matrix has to be 2 x N
+            if ~(length(pathData(:,1)) == 2)
+                error('PoseGraphOptimization: Size of path data incorrect, should be 2 x N!')
+            end
             
-            % Alloctae 
+            % Allocate 
             obj.PathData = pathData;
             
             % Get Parameters
@@ -36,9 +40,11 @@ classdef PoseGraphOptimization
             obj.L_nh = out.l_nh;
             obj.C_min = out.c_min;
             obj.M = out.M;
+            obj.Gamma1 = out.gamma1;
+            obj.Gamma2 = out.gamma2;
         end
         
-        function [matlabGraph,tutorialGraph,adjustedTutorialGraph,lagoGraph] = generateMap(obj)
+        function [X,A] = generateMap(obj)
             % This is the main function of the class which runs the mapping
             % algorithm and gives back an map estimate
             %
@@ -46,16 +52,18 @@ classdef PoseGraphOptimization
             %       [] = generateMap(obj)
             %
             % Input:
-            %   obj:            Object of the this class
+            %   obj:    Object of the this class
             %
             % Output:
+            %   X:      Pose Graph
+            %   A:      Incidence matrix
             %
             
             % (1) Data Pruning of the odometry data
             disp(['Prune ',num2str(length(obj.PathData(1,:))),' data points ...'])
             pruningParam.e_max = obj.E_max;
             pruningParam.l_min = obj.L_min;
-            DP = PoseGraphOptimization.generateDPs(obj.PathData,pruningParam);
+            DP = generateDPs(obj.PathData,pruningParam);
             disp(['Data points number reduced to ',num2str(length(DP(1,:))),'!'])
             
             % (2) Generate measurements from the pruned data set
@@ -68,66 +76,30 @@ classdef PoseGraphOptimization
             correlationParam.l_nh = obj.L_nh;
             correlationParam.c_min = obj.C_min;
             correlationParam.m = obj.M;
-            [SP] = PoseGraphOptimization.generateSPs(DP,correlationParam);
+            [SP,corr] = PoseGraphOptimization.generateSPs(DP,correlationParam);
             disp(['Found ',num2str((sum(sum(SP))-length(SP(1,:)))),' similar pairs!'])
             
-            % Matlab solution
-            disp('PGO using Matlab library ...')
-            matlabGraph = PoseGraphOptimization.matlabPGO(xi,SP);
+%             % Matlab solution
+%             disp('PGO using Matlab library ...')
+%             matlabGraph = PoseGraphOptimization.matlabPGO(xi,SP);
             
             % Tutorial Solution
             disp('PGO using tutorial approach ...')
-            tutorialGraph = PoseGraphOptimization.tutorialPGO(xi,SP);
+            optParam.gamma1 = obj.Gamma1;
+            optParam.gamma2 = obj.Gamma2;
+            [X,A] = PoseGraphOptimization.tutorialPGO(xi,SP,corr,optParam);
             
-            % Adjusted Tutorial Solution
-            disp('PGO using adjusted tutorial approach ...')
-            adjustedTutorialGraph = PoseGraphOptimization.tutorialPGOAdjusted(xi,SP);
+%             % Adjusted Tutorial Solution
+%             disp('PGO using adjusted tutorial approach ...')
+%             adjustedTutorialGraph = PoseGraphOptimization.tutorialPGOAdjusted(xi,SP);
             
-            % LAGO
-            disp('PGO using LAGO ...')
-            lagoGraph = PoseGraphOptimization.lagoPGO(xi,SP);
+%             % LAGO
+%             disp('PGO using LAGO ...')
+%             lagoGraph = PoseGraphOptimization.lagoPGO(xi,SP);
         end       
     end
     
-    methods (Static)
-        function DP = generateDPs(data,param)
-            % Function which prunes the given odometry data set
-            %
-            % Syntax:
-            %       DP = generateDPs(data,param)
-            %
-            % input:
-            %   data:   Odometry data (Matrix with 2 x N)
-            %   param:  Parameters required by the algorithm
-            %           l_min: minimum distance between two DPs
-            %           e_max: maximum allowed line error 
-            % output:
-            %   DP:     Pruned odometry data points (Matrix with 2x M), we
-            %           call them DPs (dominant points)
-            
-            % TODO: Size check
-            
-            N = length(data(1,:));
-            
-            DP = data(:,1);
-            S = data(:,1);
-            for i=2:1:N
-                d = norm(DP(:,end) - data(:,i));
-                if (d < param.l_min)
-                    S = [S data(:,i)];
-                else
-                    S_tmp = [S, data(:,i)];
-                    e = errorLineFit(S);
-                    if (e < param.e_max)
-                        S = S_tmp;
-                    else
-                        DP = [DP, S(:,end)];
-                        S = [S(:,end),data(:,i)];
-                    end
-                end
-            end  
-        end
-        
+    methods (Static)   
         function xi = generateMeasurements(data)
             % Function to generate the measurement data from a pruned data
             % set of positions. Therefore we define the orientation of 
@@ -188,7 +160,7 @@ classdef PoseGraphOptimization
             end   
         end
         
-        function [SP] = generateSPs(data,param)
+        function [SP,corr] = generateSPs(data,param)
             % Calculate the similar points in regard to the given data set
             % and the given parameters
             % 
@@ -251,6 +223,11 @@ classdef PoseGraphOptimization
                 end
             end
             
+            % Debugging, TODO: Delete this if not anylonger required
+            corr_eva = corr;
+            corr_eva(corr_eva > param.c_min) = 100;
+            corr_eva(corr_eva < param.c_min) = 0;
+            
             % Calculate similar points
             l_min = param.l_nh;                      % Minimum Length
             l_max = l_cumulated(end) - param.l_nh;  % Maximum Length
@@ -301,7 +278,7 @@ classdef PoseGraphOptimization
             graph = optimizePoseGraph(poseGraph);
         end
         
-        function X = tutorialPGO(xi,SP)
+        function [X,A] = tutorialPGO(xi,SP,corr,param)
             % Optimizes the pose graph using the method presented in (1)
             %
             % (1) A tutorial on graph-based SLAM
@@ -310,10 +287,11 @@ classdef PoseGraphOptimization
             %   xi:     measurements from the odometry (the orientations are
             %           already regulized)
             %   SP:     Matrix which contains informations about loop closures
+            %   corr:   Correlation matrix according to the SPs
             %   
             % output:
-            %   p_est:  Estimation of new pose graph nodes   
-            %
+            %   X:   	Estimation of new pose graph nodes   
+            %   A:      Incidence Matrix
             
             % check sizes
             if (length(xi(1,:)) + 2) ~= length(SP(1,:))
@@ -330,6 +308,7 @@ classdef PoseGraphOptimization
             % Add loop closure constraints
             % TODO: is this correct?
             disp(['Add loop closures ...'])
+            C = [];
             for i=1:1:(N+1)
                 for j=(1+i):1:(N+1)
                     % If there is a connection we add a column to the
@@ -338,6 +317,7 @@ classdef PoseGraphOptimization
                         v = zeros(N+1,1);
                         v(i) = -1; v(j) = 1;
                         A = [A, v];
+                        C = [C, corr(i,j)];
                     end
                 end
             end
@@ -347,14 +327,36 @@ classdef PoseGraphOptimization
             M = length(A(1,:)) - N;
             xi_lc = [xi, zeros(3,M)];
             
-            % Define information gain matrices
-            % TODO: Do something better then everywhere simply the identity
-            % matrix
-            Omega = [1 0 0; 0 1 0; 0 0 10];
-            
             % Generate initial guess of the poses using the odometry
             % measurements with [0,0,0]^T as starting point
             X = PoseGraphOptimization.generatePoses(xi,[0;0;0]);
+            
+            % Define information gain matrices
+            % TODO: Do something better then everywhere simply the identity
+            % matrix
+            Omega = cell(N+M,1);
+            
+%             for i=1:1:N+M
+%                Omega{i} = [1 0 0; 0 1 0; 0 0 10];
+%             end
+            
+            out = get_config('odometryModelNoise');
+            for i=1:1:N         % Odometric constraints
+                deltaT = norm(xi_lc(1:2,i));
+                deltaR = abs(xi_lc(3,i));
+                sigma(1) = abs(cos(X(3,i)) * (out.a(3)*deltaT + out.a(4)*deltaR));
+                sigma(2) = abs(sin(X(3,i)) * (out.a(3)*deltaT + out.a(4)*deltaR));
+                sigma(3) = (out.a(1)*deltaR + out.a(2)*deltaT);
+                for j=1:1:3
+                    if sigma(j) < 10^(-3)
+                        sigma(j) = 10^(-3);
+                    end
+                end
+                Omega{i} = diag(sigma)^(-1);
+            end
+            for i=N+1:1:N+M   	% Loop closing constraints
+                Omega{i} = diag([1/param.gamma1 1/param.gamma1 1/param.gamma2]) * (1/C(i-N));
+            end
             
             % Compute Hessian and coefficient vector
             e = inf;
@@ -370,14 +372,14 @@ classdef PoseGraphOptimization
                     i1 = 3*i-2; i2 = 3*i;
                     j1 = 3*j-2; j2 = 3*j;
                     % Hessians
-                    H(i1:i2,i1:i2) = H(i1:i2,i1:i2) + AA'*Omega*AA;
-                    H(i1:i2,j1:j2) = H(i1:i2,j1:j2) + AA'*Omega*BB;
-                    H(j1:j2,i1:i2) = H(j1:j2,i1:i2) + BB'*Omega*AA;
-                    H(j1:j2,j1:j2) = H(j1:j2,j1:j2) + BB'*Omega*BB;
+                    H(i1:i2,i1:i2) = H(i1:i2,i1:i2) + AA'*Omega{ii}*AA;
+                    H(i1:i2,j1:j2) = H(i1:i2,j1:j2) + AA'*Omega{ii}*BB;
+                    H(j1:j2,i1:i2) = H(j1:j2,i1:i2) + BB'*Omega{ii}*AA;
+                    H(j1:j2,j1:j2) = H(j1:j2,j1:j2) + BB'*Omega{ii}*BB;
                     % coefficient vector
                     e_ij = PoseGraphOptimization.errorTutorial(xi_lc(:,ii),X(:,i),X(:,j));
-                    b(i1:i2) = b(i1:i2) + AA'*Omega*e_ij;
-                    b(j1:j2) = b(j1:j2) + BB'*Omega*e_ij;
+                    b(i1:i2) = b(i1:i2) + AA'*Omega{ii}*e_ij;
+                    b(j1:j2) = b(j1:j2) + BB'*Omega{ii}*e_ij;
                 end
                 % Keep first node fixed
                 H(1:3,1:3) = H(1:3,1:3) + eye(3);
@@ -391,10 +393,6 @@ classdef PoseGraphOptimization
                 end
                 X = X + dX;
             end 
-            % Clear beginning and end
-            [~,idx1] = min(A(:,N+2));
-            [~,idx2] = max(A(:,end));
-            X = X(:,idx1:idx2);
         end
         
         function X_new = tutorialPGOAdjusted(xi,SP)
