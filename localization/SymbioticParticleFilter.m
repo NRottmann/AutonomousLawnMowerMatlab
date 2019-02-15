@@ -18,6 +18,8 @@ classdef SymbioticParticleFilter
         Particles;                      % Array of particles with every
                                         % row is one particle and contains
                                         % [x; y; phi; weight]
+        ParticlesMeasurements; 
+        TrueMeasurements;
                                         
         DP;                             % 
         x_old;
@@ -45,6 +47,7 @@ classdef SymbioticParticleFilter
         Relocalization;                 % True if Relocalization is required
         
         Counter;
+        MeasCounter;
         
         % Parameters
         W;
@@ -54,6 +57,7 @@ classdef SymbioticParticleFilter
         U_min;
         C_min;
         N_P;                            % Number of particles used
+        N_meas;                         % Number binaray measurementsd before update
     end
     
     methods
@@ -104,9 +108,14 @@ classdef SymbioticParticleFilter
             obj.U_min = out.u_min;
             obj.C_min = out.c_min;
             obj.N_P = out.n_P;
+            obj.N_meas = out.n_meas;
+            
+            obj.MeasCounter = 0;
             
             % Initialize Particles
             obj.Particles = zeros(4, obj.N_P);
+            obj.ParticlesMeasurements = zeros(obj.N_meas,obj.N_P);
+            obj.TrueMeasurements = zeros(obj.N_meas,1);
             if p0(4) ~= 0
                 for i = 1:1:obj.N_P
                     obj.Particles(:,i) = [p0(1); p0(2); ...
@@ -222,22 +231,54 @@ classdef SymbioticParticleFilter
                 end
                 %% Update
                 % For all Particles, update them according to odometryData and
-                % allocate weights according to measurement data
+                % allocate weights according to measurement data, only
+                % update every N_meas times
+                
+                % Update them according to the odometry data and take
+                % measurements
+                obj.MeasCounter = obj.MeasCounter + 1;
                 for i = 1:1:obj.N_P
                     % Move Particle, add noise
                     incNoise = 2;
                     obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,incNoise);
-
-                    % Allocate Weights, therefore check what the sensor should
-                    % measure depending on the particles position and compare
-                    % this with the actual measurement
-                    [sensorParticleData] = obj.GrassSensor.measure(obj.Particles(1:3,i));
-                    if (sensorParticleData.right == sensorData.right)
-                        obj.Particles(4,i) = 0.8;
-                    else
-                        obj.Particles(4,i) = 0.2;    
-                    end 
+                    % Make measurements
+                    sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
+                    % Store measurements
+                    obj.ParticlesMeasurements(obj.MeasCounter,i) = sensorParticleData.right;
+%                     % Store Measurements 
+%                     if (sensorParticleData.right == sensorData.right)
+%                         obj.ParticlesMeasurements(obj.MeasCounter,i) = 1;
+%                     else
+%                         obj.ParticlesMeasurements(obj.MeasCounter,i) = 0;
+%                     end
                 end
+                obj.TrueMeasurements(obj.MeasCounter) = sensorData.right;
+                % If enough measurements have been taken, update weights
+                % for all particles
+                if (obj.MeasCounter == obj.N_meas)
+                    obj.MeasCounter = 0;
+                    for i = 1:1:obj.N_P
+                        obj.Particles(4,i) = 1 - abs(mean(obj.TrueMeasurements(:)) ...
+                                    - mean(obj.ParticlesMeasurements(:,i)));
+                        % obj.Particles(4,i) = sum(obj.ParticlesMeasurements(:,i));
+                    end
+                    obj.Particles(4,:) = obj.Particles(4,:) - min(obj.Particles(4,:));
+                end
+%                 for i = 1:1:obj.N_P
+%                     % Move Particle, add noise
+%                     incNoise = 2;
+%                     obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,incNoise);
+% 
+%                     % Allocate Weights, therefore check what the sensor should
+%                     % measure depending on the particles position and compare
+%                     % this with the actual measurement
+%                     [sensorParticleData] = obj.GrassSensor.measure(obj.Particles(1:3,i));
+%                     if (sensorParticleData.right == sensorData.right)
+%                         obj.Particles(4,i) = 0.8;
+%                     else
+%                         obj.Particles(4,i) = 0.2;    
+%                     end 
+%                 end
 
                 % Normalize weights and calculate effective number of particles
                 obj.Particles(4,:) = obj.Particles(4,:) / sum(obj.Particles(4,:));

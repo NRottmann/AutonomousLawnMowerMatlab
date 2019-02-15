@@ -41,6 +41,7 @@ switch caseString
         out.u_min = 0.4;
         out.c_min = 1.0;
         out.n_P = 500;              % Number particles
+        out.n_meas = 20;            % Measure 20 times before updating weights of the particle filter
     case 'system'
         out.dt = 0.05;
     case 'mapping'
