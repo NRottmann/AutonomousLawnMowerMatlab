@@ -1,0 +1,299 @@
+classdef ControlUnit
+    % Control unit for the lawn mower
+    %
+    % Methods:
+    %   ControlUnit(polyMap)
+    %       Constructior, initializes all classes with a given polyMap
+    %
+    % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
+    % 06.03.2019
+    
+    properties
+        %% Classes
+        % Planning
+        ClassNNCCPP;
+        ClassCoverage;
+        % Models
+        ClassOdometryModel;
+        ClassKinematicModel;
+        ClassGrassSensor;
+        % Mapping
+        ClassPoseGraphOptimization;
+        % Localization
+        ClassGlobalLocalizer
+        ClassParticleFilter;
+        % Control
+        ClassWallFollower;
+        ClassRandomController;
+        ClassPDController;
+        
+        %% Storage Variables
+        PolyMap;
+        EstPolyMap;
+        Pose;
+        EstPose;
+        
+        %% Parameters
+        Dt;
+    end
+    
+    methods
+        function obj = ControlUnit(polyMap,pose)
+            % This is the constructor of the class
+            % Syntax:
+            %       obj = ControlUnit()
+            % Input:
+            %   polyMap:     	The map as polygon
+            %   pose:           Starting pose of the robot
+            % Output:
+            %   obj:            Intance of the class ControlUnit
+            
+            %% Initialize the classes
+            % Models
+            obj.ClassOdometryModel = OdometryModel();
+            obj.ClassKinematicModel = KinematicModel();
+            obj.ClassGrassSensor = GrassSensor(polyMap);
+            
+            % Controller
+            obj.ClassWallFollower = WallFollower();
+            obj.ClassRandomController = RandomController();
+            obj.ClassPDController = PDController();
+            
+            % Mapping
+            obj.ClassPoseGraphOptimization = PoseGraphOptimization();
+            
+            % Localization
+            obj.ClassGlobalLocalizer = GlobalLocalizer(polyMap);
+            
+            % Planning
+            obj.ClassCoverage = Coverage();
+            obj.ClassNNCCPP = NNCCPP();
+            
+            %% Initialize variables
+            obj.PolyMap = polyMap;
+            obj.EstPolyMap = polyMap;
+            obj.Pose = pose;
+            obj.EstPose = pose;
+            
+            %% Get Parameters
+            out = get_config('system');
+            obj.Dt =  out.dt;
+        end
+        
+        function [obj,path,estPath] = wallFollowing(obj,T,mode)
+            % This is the wall following simulator
+            % Syntax:
+            %       [path,estPath] = wallFollowing(obj,T)
+            % Input:
+            %   T:              Simulation time
+            %   mode:           Choose either 0 for random start pose or 1
+            %                   for defined starting pose
+            % Output:
+            %   path:           True path travelled
+            %   estPath:        Estimated path travelled
+            
+            I = round(T/obj.Dt);
+            path = zeros(3,I+1);
+            estPath = zeros(3,I+1);
+            if mode == 0
+                path(:,1) = generateStartPose(obj.PolyMap);     % Start with random initial start pose
+            elseif mode == 1
+                path(:,1) = obj.Pose;
+            else
+                error('Wrong mode chosen!')
+            end
+            for i = 1:1:I
+                % Step 1: Get sensor measurements
+                sensorData = obj.ClassGrassSensor.measure(path(:,i));
+                % Step 2: Get control input
+                [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                % Step 3: Move Robot and store positions
+                [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
+                % Step 4: Corrupt pose with noise
+                [obj.ClassOdometryModel,~] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
+                estPath(:,i+1) = obj.ClassOdometryModel.odometryPose(estPath(:,i), true, 1);
+            end
+            obj.Pose = path(:,end);
+            obj.EstPose = estPath(:,end);
+        end
+        
+        function [obj,results] = mapping(obj,path)
+            % This is the mapping mode
+            % Syntax:
+            %       results = mapping(obj,path)
+            % Input:
+            %   path:           Path data used for generating the map
+            % Output:   
+            %   results:        Results of the mapping approach
+            %       optimizedPath:  The whole path after optimization
+            %       cuttedPath:     path with cutted edges
+            %       closedPath:     Closed path
+            %       polyMap:        The map estimate
+            
+            % Generate optimized path data
+            [path,A] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:));
+            results.optimizedPath = path;
+            % Cut ends
+            [path,A] = CutGraph(path,A);
+            results.cuttedPath = path;
+            % Close graph
+            [path] = CloseGraph(path,A);
+            results.closedPath = path;
+            % Generate poly map from closed graph
+            results.polyMap = genPolyMap(path(1,:),path(2,:));
+            % Adjust estimated map
+            obj.EstPolyMap = results.polyMap;
+        end
+
+        function results = compare(obj,mode)
+            % This is the compare method for the 
+            % Syntax:
+            %       results = compare(obj,path)
+            % Input:
+            %   mode            Comparison method
+            % Output:   
+            %   results:        Results of the mapping approach
+            %       error:          The error between the true map and the
+            %                       estimated one
+            %       alignedPath:    The aligned path of the map estimate
+            [path,E] = Compare2Map(obj.EstPolyMap,obj.PolyMap,mode);
+            results.alignedPath = path;
+            results.error = E;
+        end
+        
+        function [obj,results] = globalLocalization(obj,T)
+            % This is the method for global localization
+            % Syntax:
+            %       [obj,results] = globalLocalization(obj)
+            % Input:
+            %   T:              Maximum time used for global localization
+            %                   before stopping
+            % Output:   
+            %   results:        Results of the localization approach
+            %
+            %  
+            % Allocate actual map estimate
+            obj.ClassGlobalLocalizer.PolyMap = obj.EstPolyMap;
+            % Set wall follower back to find the wall first
+            % TODO: Make the wall follower moe intelligent, such that
+            % inidcates by itself whether it has to search for a wall
+            obj.ClassWallFollower.Mode = 0;
+            % Get maximum number of iterations
+            I = round(T/obj.Dt);
+            % Initialize storage capacities and allocate pose
+            path = zeros(3,I+1);
+            path(:,1) = obj.Pose;
+            estPath = zeros(3,I+1);
+            % Initialize parameters
+            i = 1;
+            results.foundPosition = false;
+            while ~results.foundPosition && i < I
+                % Step 1: Get sensor measurements
+                sensorData = obj.ClassGrassSensor.measure(path(:,i));
+                % Step 2: Get control input
+                [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                % Step 3: Move Robot and store positions
+                [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
+                % Step 4: Corrupt pose with noise
+                [obj.ClassOdometryModel,~] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
+                estPath(:,i+1) = obj.ClassOdometryModel.odometryPose(estPath(:,i), true, 1);
+                % Step 5: Use Global Localization
+                if obj.ClassWallFollower.Mode == 0
+                    obj.ClassGlobalLocalizer.DP = estPath(1:2,i+1);
+                    obj.ClassGlobalLocalizer.S = estPath(1:2,i+1);
+                elseif obj.ClassWallFollower.Mode == 1
+                    [obj.ClassGlobalLocalizer,results] = obj.ClassGlobalLocalizer.localization(estPath(:,i+1));
+                else
+                    error('Wrong mode!');
+                end
+                % Count up
+                i = i + 1;
+            end
+            results.path = path;
+            results.estPath = estPath;
+            results.pose = path(:,i);
+            obj.Pose = path(:,i);
+            if results.foundPosition
+                obj.EstPose = results.estPose;
+            else
+                disp('Did not find a pose match for pose estimate!')
+                obj.EstPose = [0;0;0];
+            end
+        end
+        
+        function [obj,results] = completeCoverage(obj,T,mode)
+            % This is the method is for complete coverage of the workspace
+            % Syntax:
+            %       [obj,results] = globalLocalization(obj)
+            % Input:
+            %   T:              Maximum time used for CCPP
+            %                   before stopping
+            %   mode:           Coverage mode
+            %       1:          Random Walk
+            %       2:          NNCCPP
+            % Output:   
+            %   results:        Results of the CCPP approach
+            %
+            
+            % Allocate actual map estimate
+            obj.ClassParticleFilter = ParticleFilter(obj.EstPolyMap);
+            % Get maximum number of iterations
+            I = round(T/obj.Dt);
+            % Initialize storage capacities and allocate pose
+            path = zeros(3,I+1);
+            path(:,1) = obj.Pose;
+            estPath = zeros(3,I+1);
+            
+            % Decide which mode
+            if mode == 1
+                % Initialize
+                odometryData.DeltaR1 = 0; odometryData.DeltaT = 0; odometryData.DeltaR2 = 0;
+                % TODO: Add here choices
+                obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
+                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
+                for i=1:1:I
+                    % Step 1: Get sensor measurements
+                    sensorData = obj.ClassGrassSensor.measure(path(:,i));
+                    % Step 2: Get control input
+                    [obj.ClassRandomController,u] = obj.ClassRandomController.randomControl(sensorData,odometryData);
+                    % Step 3: Move Robot and store positions
+                    [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
+                    % Step 4: Corrupt pose with noise
+                    [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
+                    % Step 5: Use Particle Filter
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
+                    [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
+                    % Step 6: Update Coverage Map
+                    obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles);
+                end
+            elseif mode == 2
+                % TODO: Add here choices
+                obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
+                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
+                obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
+                for i=1:1:I
+                    disp(i*obj.Dt)
+                    % Step 1: Get sensor measurements
+                    sensorData = obj.ClassGrassSensor.measure(path(:,i));
+                    % Step 2: Get control input
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                    [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
+                    % Step 3: Move Robot and store positions
+                    [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
+                    % Step 4: Corrupt pose with noise
+                    [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
+                    % Step 5: Use Particle Filter
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
+                    [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
+                    % Step 6: Update Coverage Map
+                    obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
+                end
+            else
+                error('Wrong mode chosen!')
+            end
+            results.path = path;
+            results.estPath = estPath;
+            results.coverageMap = obj.ClassCoverage.CoverageMap;
+        end
+    end    
+end

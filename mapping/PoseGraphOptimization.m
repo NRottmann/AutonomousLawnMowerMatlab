@@ -22,17 +22,9 @@ classdef PoseGraphOptimization
     end
     
     methods
-        function obj = PoseGraphOptimization(pathData)
+        function obj = PoseGraphOptimization()
             % This is the constructor of the class
-            
-            % Check size, matrix has to be 2 x N
-            if ~(length(pathData(:,1)) == 2)
-                error('PoseGraphOptimization: Size of path data incorrect, should be 2 x N!')
-            end
-            
-            % Allocate 
-            obj.PathData = pathData;
-            
+
             % Get Parameters
             out = get_config('mapping');
             obj.L_min = out.l_min;
@@ -44,7 +36,7 @@ classdef PoseGraphOptimization
             obj.Gamma2 = out.gamma2;
         end
         
-        function [X,A] = generateMap(obj)
+        function [X,A] = generateMap(obj,pathData)
             % This is the main function of the class which runs the mapping
             % algorithm and gives back an map estimate
             %
@@ -58,6 +50,13 @@ classdef PoseGraphOptimization
             %   X:      Pose Graph
             %   A:      Incidence matrix
             %
+            
+            % (0) Allocate path data
+            % Check size, matrix has to be 2 x N
+            if ~(length(pathData(:,1)) == 2)
+                error('PoseGraphOptimization: Size of path data incorrect, should be 2 x N!')
+            end
+            obj.PathData = pathData;
             
             % (1) Data Pruning of the odometry data
             disp(['Prune ',num2str(length(obj.PathData(1,:))),' data points ...'])

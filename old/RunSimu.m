@@ -4,7 +4,7 @@ clear all;
 clc;
 
 %% Choose the map
-map_name = 'map_02.mat';  
+map_name = 'map_garden03.mat';  
 load(map_name);
 
 %% Do the simulation
