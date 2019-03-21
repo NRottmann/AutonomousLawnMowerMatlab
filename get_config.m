@@ -10,8 +10,8 @@ switch caseString
         out.Kr = 1;
         out.Kw = 1;
     case 'WallFollower'
-        out.a_mu = 0.7;
-        out.a_v = 0.7;
+        out.a_mu = 0.9;
+        out.a_v = 0.9;
         out.M = 100;
     case 'VelLimitations'
         out.v_max = 0.3;
@@ -62,6 +62,6 @@ switch caseString
         out.d = 0.5;          % Lower bound
         out.e = 2;              % Maximum Gain, for gradient
         out.c = 0.1;          % Control gain
-    end
+end
 end
 

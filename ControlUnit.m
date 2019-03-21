@@ -19,6 +19,7 @@ classdef ControlUnit
         ClassGrassSensor;
         % Mapping
         ClassPoseGraphOptimization;
+        ClassMapPostProcessing;
         % Localization
         ClassGlobalLocalizer
         ClassParticleFilter;
@@ -61,6 +62,7 @@ classdef ControlUnit
             
             % Mapping
             obj.ClassPoseGraphOptimization = PoseGraphOptimization();
+            obj.ClassMapPostProcessing = MapPostProcessing([polyMap.x; polyMap.y],0);
             
             % Localization
             obj.ClassGlobalLocalizer = GlobalLocalizer(polyMap);
@@ -132,17 +134,23 @@ classdef ControlUnit
             
             % Generate optimized path data
             [path,A] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:));
-            results.optimizedPath = path;
+            obj.ClassMapPostProcessing.DP = path(1:2,:);
+            obj.ClassMapPostProcessing.A = A;
             % Cut ends
-            [path,A] = CutGraph(path,A);
-            results.cuttedPath = path;
+            obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.cutGraph();
             % Close graph
-            [path] = CloseGraph(path,A);
-            results.closedPath = path;
+            obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.closeGraph();
             % Generate poly map from closed graph
-            results.polyMap = genPolyMap(path(1,:),path(2,:));
+            obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.generatePolyMap();
             % Adjust estimated map
-            obj.EstPolyMap = results.polyMap;
+            obj.EstPolyMap = obj.ClassMapPostProcessing.EstMap;
+            % Allocate results
+            results.estMap = obj.ClassMapPostProcessing.EstMap;      
+            results.DP = obj.ClassMapPostProcessing.DP;             
+            results.cutDP = obj.ClassMapPostProcessing.CutDP;          
+            results.closedDP = obj.ClassMapPostProcessing.ClosedDP;       
+            results.A = obj.ClassMapPostProcessing.A;             
+            results.cutA = obj.ClassMapPostProcessing.CutA;          
         end
 
         function results = compare(obj,mode)
@@ -156,9 +164,8 @@ classdef ControlUnit
             %       error:          The error between the true map and the
             %                       estimated one
             %       alignedPath:    The aligned path of the map estimate
-            [path,E] = Compare2Map(obj.EstPolyMap,obj.PolyMap,mode);
-            results.alignedPath = path;
-            results.error = E;
+            
+            results = obj.ClassMapPostProcessing.compareMaps(obj.PolyMap,mode);
         end
         
         function [obj,results] = globalLocalization(obj,T)
