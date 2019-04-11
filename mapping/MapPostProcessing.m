@@ -58,6 +58,8 @@ classdef MapPostProcessing
             %       Xclosed:   
             %
             
+            disp('Compare estimated map with groundtruth. This can take somewhile ...')
+            
             % Transform maps in set of points
             X1 = [obj.EstMap.x; obj.EstMap.y];
             X2 = [trueMap.x; trueMap.y];
@@ -114,12 +116,14 @@ classdef MapPostProcessing
                 [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1,Poly2,Comp,refpoint,10^(-3));
                 if mode == 4
                     % Get some different rotations
-                    phi = 0:1:180;
+                    phi = 0:45:180;
                     Poly1_tmp = cell(length(phi),1);
                     Comp_tmp = zeros(length(phi),1);
                     for ii=1:1:length(phi)
                         Poly1_tmp{ii} = rotate(Poly1,phi(ii),refpoint);
                         Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(Poly2);
+                        [Poly1_tmp{ii},Comp_tmp(ii)] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{ii},Poly2,Comp_tmp(ii),refpoint,10^(-6));
+                        % Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(Poly2);
                     end
                     [~,idx] = min(Comp_tmp);
                     [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{idx},Poly2,Comp_tmp(idx),refpoint,10^(-6));
@@ -143,6 +147,8 @@ classdef MapPostProcessing
             results.compDP = X1;
             results.trueDP = X2;
             results.error = Comp;
+            
+            disp('Comparison completed successfully!')
         end
         function [obj] = cutGraph(obj) 
             % This methods throws away the beginning and end of the graph
@@ -225,7 +231,7 @@ classdef MapPostProcessing
                 end
                 Poly1 = rotate(Poly1,trans(3),refpoint);
                 Poly1 = translate(Poly1,trans(1),trans(2));
-                Comp_tmp = area(xor(Poly1,Poly2))/area(Poly2)
+                Comp_tmp = area(xor(Poly1,Poly2))/area(Poly2);
                 diff = Comp - Comp_tmp;
                 Comp = Comp_tmp;
             end

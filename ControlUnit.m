@@ -119,12 +119,15 @@ classdef ControlUnit
             obj.EstPose = estPath(:,end);
         end
         
-        function [obj,results] = mapping(obj,path)
+        function [obj,results] = mapping(obj,path,optimize)
             % This is the mapping mode
             % Syntax:
             %       results = mapping(obj,path)
             % Input:
             %   path:           Path data used for generating the map
+            %   optimize:   struct for optimization
+            %       loopClosure:    if true, we optimize l_nh and c_min
+            %       mapping:        if true, we optimize gamma1 and gamma2
             % Output:   
             %   results:        Results of the mapping approach
             %       optimizedPath:  The whole path after optimization
@@ -133,7 +136,7 @@ classdef ControlUnit
             %       polyMap:        The map estimate
             
             % Generate optimized path data
-            [path,A] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:));
+            [obj.ClassPoseGraphOptimization,path,A] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize);
             obj.ClassMapPostProcessing.DP = path(1:2,:);
             obj.ClassMapPostProcessing.A = A;
             % Cut ends
@@ -271,7 +274,7 @@ classdef ControlUnit
                     obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
                     % Step 6: Update Coverage Map
-                    obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles);
+                    obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                 end
             elseif mode == 2
                 % TODO: Add here choices

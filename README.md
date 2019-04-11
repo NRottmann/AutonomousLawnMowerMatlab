@@ -6,14 +6,12 @@ Matlab Simulation environment for the self-designed autonomous lawn mower of the
 
 ## What does this project do:
 * Simulate the lawn mower as realistic as possible
-* Test algorithms
-* ...
+* Test and evaluate algorithms based on simulated or real data
 
 ## Get started
 * First run the Initialization.m script which creates a startup.m script
 * Run the startup.m script, this will add all folders of the package to your Matlab environment
-* Open Run.m, here you can see examples how to use the simulation environment
-	* The main class is the ControlUnit, it controls the simulation environment using different methods
+* Open the examples folder, here you can see examples how to use the simulation environment
 
 ## Issues:
 * Resolve TODO's

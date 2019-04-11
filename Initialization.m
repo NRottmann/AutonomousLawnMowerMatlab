@@ -23,6 +23,7 @@ base = full(1:end-length(name));
 for i=1:1:length(nameFolds)
     A{i} = strcat('addpath(''',[base nameFolds{i}],''');');
 end
+A{length(nameFolds)+1} = strcat('addpath(''',[base],''');');
 
 % Generating the startup script and adding the strings to it
 scriptname = sprintf('startup.m');

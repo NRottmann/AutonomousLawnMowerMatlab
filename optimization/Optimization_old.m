@@ -2,7 +2,7 @@ classdef Optimization
     % This class is used for different optimization techniques
     %
     % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
-    % 25.03.2019
+    % 11.03.2019
     
     properties
         % Classes
