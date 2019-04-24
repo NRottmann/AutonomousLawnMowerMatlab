@@ -66,12 +66,11 @@ classdef Coverage
             % This method updates the coverage map given the current
             % particle distribution
             % Syntax:
-            %       obj = initializeCoverageMap(obj,polyMap)
+            %       obj = initializeCoverageMap(particles, estPose)
             % Input:
             %   particles:          Particles form the particle filter
             %   estPose:            Current pose estimate
-            
-            if norm(estPose - obj.Pose) > obj.Resolution
+            if norm(estPose - obj.Pose) > 1/obj.Resolution
                 obj.Pose = estPose;
                 n = length(particles(1,:));
                 prob = zeros(obj.N,obj.M);
