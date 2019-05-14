@@ -95,7 +95,6 @@ classdef NNCCPP
             %   x:          Next target position
 
             % Update external inputs
-            surf(coverageMap');
             coverageMap_tmp = coverageMap;
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
@@ -165,8 +164,6 @@ classdef NNCCPP
                             - (obj.D*ones(obj.N,obj.M) + X) .* In;
                         
             obj.NeuralActivity = X + dX*obj.Dt;
-            
-            % surf(obj.NeuralActivity) 
         end
         
     	function obj = planning(obj,pose)   

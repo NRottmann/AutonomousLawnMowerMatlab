@@ -29,4 +29,10 @@ subplot(1,2,2)
 plot(polyMap.x,polyMap.y)
 hold on
 plot(coverageResults.estPath(1,:),coverageResults.estPath(2,:))
-
+hold off
+figure()
+surf(coverageResults.particleCoverageMap');
+title('ParticleCoverageMap');
+figure()
+surf(coverageResults.coverageMap');
+title('CoverageMap');

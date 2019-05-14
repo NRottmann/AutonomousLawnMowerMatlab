@@ -81,7 +81,7 @@ classdef Coverage
                         prob(idx_x,idx_y) = prob(idx_x,idx_y) + 1/n;
                     end
                 end
-                obj.CoverageMap = obj.CoverageMap + prob - prob.*obj.CoverageMap; 
+                obj.CoverageMap = obj.CoverageMap + prob - prob.*obj.CoverageMap;
             end
         end
     end

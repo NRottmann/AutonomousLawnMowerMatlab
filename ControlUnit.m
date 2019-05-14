@@ -299,6 +299,7 @@ classdef ControlUnit
                 obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
                 obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
                 for i=1:1:I
+                    disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
@@ -341,6 +342,8 @@ classdef ControlUnit
             results.path = path;
             results.estPath = estPath;
             results.coverageMap = obj.ClassCoverage.CoverageMap;
+            results.particleCoverageMaps = obj.ClassParticleFilter.ParticleCoverageMaps;
+            results.particleCoverageMap = obj.ClassParticleFilter.CoverageMap;
         end
     end    
 end
