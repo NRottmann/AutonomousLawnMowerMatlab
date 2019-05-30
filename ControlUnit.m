@@ -324,7 +324,7 @@ classdef ControlUnit
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
                     [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);

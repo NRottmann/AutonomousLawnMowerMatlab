@@ -53,7 +53,7 @@ switch caseString
         out.c_min = 1.0;
         out.c_diff = 0;
     case 'particleFilter'
-        out.n_P = 1000;                     % Number particles
+        out.n_P = 250;                      % Number particles
         out.poseVariance = [0.5;0.5;0.5];   % Variance for distributing the particles around a initial pose estimate
         out.n_M = 20;                       % Measure 20 times before updating weights of the particle filter
         out.increaseNoise = 1;            	% Factor which increases the noise of the odometry model for the particles
@@ -63,12 +63,11 @@ switch caseString
         out.resolution = 10;                % Resolution in cells per meter
     case 'planning'
         out.a = 1;          % Passive decay rate
-        out.b = 1.5;            % Upper bound
-        out.d = 0.5;          % Lower bound
-        out.e = 2;              % Maximum Gain, for gradient
-        out.c = 0.1;          % Control gain
-    case 'computation'
-        out.parallel = true;
+        out.b = 1;            % Upper bound
+        out.d = 0;          % Lower bound
+        out.e = 1;              % Maximum Gain, for gradient
+        out.c = 1;          % Control gain
+        out.threshhold = 0.5;
 end
 end
 

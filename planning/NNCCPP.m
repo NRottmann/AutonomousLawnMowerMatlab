@@ -24,8 +24,7 @@ classdef NNCCPP
         D;                  % Lower bound
         E;                  % Gain
         C;                  % Control gain  
-        
-        Parallel;          	% Boolean of parallel computation required
+        Threshhold          % Threshhold for the coverageMap
 
         Dt;                 % Step time   
     end
@@ -39,6 +38,7 @@ classdef NNCCPP
             obj.D = out.d;
             obj.E = out.e;
             obj.C = out.c;
+            obj.Threshhold = out.threshhold;
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
@@ -78,9 +78,11 @@ classdef NNCCPP
             
             % Initialize matrix for neural activity
             obj.NeuralActivity = zeros(obj.N,obj.M);
+            obj.NeuralActivity = ones(obj.N,obj.M) - 2*obj.ObstacleMap;
             
             % Initialize current target position
             obj.TargetPosition = zeros(2,1);
+%             surf(obj.NeuralActivity')
         end
         
         function [obj,x] = planStep(obj,pose,coverageMap)
@@ -99,12 +101,17 @@ classdef NNCCPP
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
             coverageMap_tmp(idx_x,idx_y) = 1;
-            obj.ExternalInput = obj.E*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E*obj.ObstacleMap;
+            coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
+            coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
+            obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
+            obj.ExternalInput(obj.ExternalInput < -obj.E) = -obj.E;
+            
             % Update neural activity
             obj = updateNeuralActivity(obj);
             % Plan the next step
             obj = planning(obj,pose);
             x = obj.TargetPosition;
+%             surf(obj.ExternalInput')
         end
         
         function [obj] = updateNeuralActivity(obj)
@@ -152,8 +159,12 @@ classdef NNCCPP
                 end
             end
             Xp = Xp_tmp;
+%             m = max(max(Xp));
+%             Xp = Xp / m;
+%             surf(Xp');
             
             I = obj.ExternalInput;
+%             surf(I')
             Ip = I;                     % positiv external inputs
             Ip(Ip < 0) = 0;
             In = I;                     % negativ external inputs
@@ -162,8 +173,11 @@ classdef NNCCPP
 
             dX = -obj.A*X + (obj.B*ones(obj.N,obj.M) - X) .* (Ip + Xp) ...
                             - (obj.D*ones(obj.N,obj.M) + X) .* In;
-                        
+            
+%             surf(dX')
             obj.NeuralActivity = X + dX*obj.Dt;
+            
+            surf(obj.NeuralActivity')
         end
         
     	function obj = planning(obj,pose)   

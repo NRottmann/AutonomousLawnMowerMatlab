@@ -228,12 +228,6 @@ classdef ParticleFilter
                         obj.Particles(4,i) = w1 + w2;
                     end
                 end
-                
-                obj.CoverageMap = zeros(obj.N,obj.M);
-                for i = 1:1:obj.N_P
-                    obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));
-                end
-                obj.CoverageMap = obj.CoverageMap / obj.N_P;
             end
 
             % Normalize weights and calculate effective number of particles
@@ -271,6 +265,11 @@ classdef ParticleFilter
                 obj.ParticleCoverageMaps = tempCoverageMaps;
             end 
             
+            obj.CoverageMap = zeros(obj.N,obj.M);
+            for i = 1:1:obj.N_P
+                obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));
+            end
+            obj.CoverageMap = obj.CoverageMap / obj.N_P;
         end
   
         function [pose,variance] = getPoseEstimate(obj)
