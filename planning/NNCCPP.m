@@ -24,6 +24,8 @@ classdef NNCCPP
         D;                  % Lower bound
         E;                  % Gain
         C;                  % Control gain  
+        
+        Parallel;          	% Boolean of parallel computation required
 
         Dt;                 % Step time   
     end
@@ -40,6 +42,9 @@ classdef NNCCPP
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
+            
+            out = get_config('computation');
+            obj.Parallel = out.parallel; 
             
             out = get_config('system');
             obj.Dt = out.dt;
@@ -110,14 +115,37 @@ classdef NNCCPP
             Xp = X;                         % positiv neural activity
             Xp(Xp < 0) = 0;
             Xp_tmp = zeros(obj.N,obj.M);    % Generate weighted inhibitory inputs
-            for i=1:1:obj.N
-                for j=1:1:obj.M
+            
+            if obj.Parallel
+                n = obj.N;
+                m = obj.M;
+                x_tmp = zeros(n*m,1);
+                parfor ij=1:1:n*m
+                    j = ceil(ij/n);
+                    i = ij - (j-1)*n;
                     for ii=-1:1:1
                         for jj=-1:1:1
                             iii = ii + i;
                             jjj = jj + j;
-                            if ~(ii==0 && jj==0) && ((iii>=1 && iii<=obj.N) && (jjj>=1 && jjj<=obj.M))
-                                Xp_tmp(i,j) = Xp_tmp(i,j) + norm([ii; jj]) * Xp(iii,jjj);
+                            if ~(ii==0 && jj==0) && ((iii>=1 && iii<=n) && (jjj>=1 && jjj<=m))
+                                x_tmp(ij) = x_tmp(ij) + norm([ii; jj]) * Xp(iii,jjj);
+                            end
+                        end
+                    end
+                end
+                for j=1:1:m
+                    Xp_tmp(:,j) = x_tmp(1+(j-1)*n:j*n,1);
+                end
+            else
+                for i=1:1:obj.N
+                    for j=1:1:obj.M
+                        for ii=-1:1:1
+                            for jj=-1:1:1
+                                iii = ii + i;
+                                jjj = jj + j;
+                                if ~(ii==0 && jj==0) && ((iii>=1 && iii<=obj.N) && (jjj>=1 && jjj<=obj.M))
+                                    Xp_tmp(i,j) = Xp_tmp(i,j) + norm([ii; jj]) * Xp(iii,jjj);
+                                end
                             end
                         end
                     end

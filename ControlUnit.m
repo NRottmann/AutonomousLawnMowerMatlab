@@ -156,7 +156,7 @@ classdef ControlUnit
             results.cutA = obj.ClassMapPostProcessing.CutA;          
         end
 
-        function results = compare(obj,mode)
+        function [obj,results] = compare(obj,mode)
             % This is the compare method for the 
             % Syntax:
             %       results = compare(obj,path)
@@ -169,19 +169,35 @@ classdef ControlUnit
             %       alignedPath:    The aligned path of the map estimate
             
             results = obj.ClassMapPostProcessing.compareMaps(obj.PolyMap,mode);
+            obj.EstPolyMap = results.turnedEstPolyMap;         
         end
         
-        function [obj,results] = globalLocalization(obj,T)
+        function [obj,results] = globalLocalization(obj,T,mode,mapParam)
             % This is the method for global localization
             % Syntax:
             %       [obj,results] = globalLocalization(obj)
             % Input:
             %   T:              Maximum time used for global localization
             %                   before stopping
+            %   mode:           Mode used
+            %                   1: Random starting position within the map
+            %                   2: Current position as starting position
+            %   mapParam:       If true, we use the parameter from the pose
+            %                   graph optimization, else the in the config
+            %                   defined parameter
             % Output:   
             %   results:        Results of the localization approach
             %
             %  
+            % Get parameter if required
+            if mapParam
+                obj.ClassGlobalLocalizer.C_min = obj.ClassPoseGraphOptimization.C_min;
+                obj.ClassGlobalLocalizer.L_nh = obj.ClassPoseGraphOptimization.L_nh;
+            else
+                out = get_config('globalLocalization');
+                obj.ClassGlobalLocalizer.C_min = out.c_min;
+                obj.ClassGlobalLocalizer.L_nh = out.l_nh;
+            end
             % Allocate actual map estimate
             obj.ClassGlobalLocalizer.PolyMap = obj.EstPolyMap;
             % Set wall follower back to find the wall first
@@ -192,8 +208,16 @@ classdef ControlUnit
             I = round(T/obj.Dt);
             % Initialize storage capacities and allocate pose
             path = zeros(3,I+1);
-            path(:,1) = obj.Pose;
             estPath = zeros(3,I+1);
+            % Choose real starting pose depending on the mode
+            if mode == 1
+                obj.Pose = generateStartPose(obj.PolyMap);
+            elseif mode == 2
+                obj.Pose = obj.Pose;
+            else
+                error('ControlUnit.GlobalLocalization: Wrong mode chosen!')
+            end
+            path(:,1) = obj.Pose;
             % Initialize parameters
             i = 1;
             results.foundPosition = false;

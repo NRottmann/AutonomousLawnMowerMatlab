@@ -22,10 +22,7 @@ classdef GrassSensor
     methods
         function obj = GrassSensor(polyMap)
             % Constructor
-            
-            % Store the map of the environment
             obj.PolyMap = polyMap;
-            
             % Load parameters
             out = get_config('Sensor');
             obj.PosRight =  out.posRight;

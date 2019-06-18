@@ -25,6 +25,11 @@ classdef ParticleFilter
         N_S;                            % Number sensors used, (1 or 2)
         ThresholdResampling;            % Threshold for resampling
         
+        Parallel;                       % Boolean of parallel computation required
+        A;                              % Odometrie model parameters
+        PosRight;
+        PosLeft;
+        
         % Classes
         OdometryModel;                  % This model is used for simulating particle movements based on the odometry data
         GrassSensor;                    % This model is used to simulate the sensor measurements for the particles  
@@ -53,6 +58,16 @@ classdef ParticleFilter
             obj.N_M = out.n_M;
             obj.IncreaseNoise = out.increaseNoise;
             obj.N_S = out.n_S;
+            
+            out = get_config('computation');
+            obj.Parallel = out.parallel; 
+            
+            out = get_config('odometryModelNoise');
+            obj.A = out.a; 
+            
+            out = get_config('Sensor');
+            obj.PosRight =  out.posRight;
+            obj.PosLeft = out.posLeft;
             
             % Initialize Measurement Counter
             obj.CounterMeasurements = 0;
@@ -143,21 +158,78 @@ classdef ParticleFilter
             % allocate weights according to measurement data, thereby we
             % update only every N
             obj.CounterMeasurements = obj.CounterMeasurements + 1;
-            for i = 1:1:obj.N_P
-                % Move Particle, add noise
-                obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
-                % Simulate measurements based on the pose of the particles
-                sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
-                % Store measurements
+            
+            % Parallized computing
+            if obj.Parallel
+                particles = obj.Particles(1:3,:);
+                measurements = zeros(obj.N_S,obj.N_P);
+                a = obj.A;
+                DeltaR1 = obj.OdometryModel.DeltaR1;
+                DeltaT = obj.OdometryModel.DeltaT;
+                DeltaR2 = obj.OdometryModel.DeltaR2;
+                posRight = obj.PosRight;
+                posLeft = obj.PosLeft;
+                x_vertices = obj.PolyMap.x;
+                y_vertices = obj.PolyMap.y;
+                n_s = obj.N_S;
+                parfor i = 1:1:obj.N_P
+                    % Move Particle, add noise
+                    deltaR1 = DeltaR1 - sampleNormalDistribution(a(1)*abs(DeltaR1) + a(2)*DeltaT);
+                    deltaT = DeltaT - sampleNormalDistribution(a(3)*DeltaT + a(4)*abs(DeltaR1+DeltaR2));
+                    deltaR2 = DeltaR2 - sampleNormalDistribution(a(1)*abs(DeltaR2) + a(2)*DeltaT);
+                    p0 = particles(:,i);
+                    p0 = p0 + [cos(p0(3)+deltaR1), 0; sin(p0(3)+deltaR1), 0; 0, 1] ...
+                            * [deltaT; (deltaR1+deltaR2)];
+                    % Simulate measurements based on the pose of the particles
+                    % Orientation Matrix
+                    R = [cos(p0(3)) -sin(p0(3)); sin(p0(3)) cos(p0(3))];
+                    % Caluclate the actual positions of the sensors
+                    pR = p0(1:2) + R*posRight;
+                    pL = p0(1:2) + R*posLeft;
+                    % Make the measurements
+                    right = inpolygon(pR(1),pR(2),x_vertices,y_vertices);
+                    left = inpolygon(pL(1),pL(2),x_vertices,y_vertices);
+
+                    % Store pose and weights
+                    particles(:,i) = p0;
+
+                    % Store measurements
+                    if n_s == 1
+                        measurements(:,i) = right;
+                    elseif n_s == 2
+                        measurements(:,i) = [right; left];
+                    else
+                        error('Wrong number of sensors chosen (n_S)');
+                    end           
+                end
+                % Allcoate
+                obj.Particles(1:3,:) = particles;
                 if obj.N_S == 1
-                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = measurements(1,:);
                 elseif obj.N_S == 2
-                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
-                    obj.ParticlesMeasurements{2}(obj.CounterMeasurements,i) = sensorParticleData.left;
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = measurements(1,:);
+                    obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = measurements(2,:);
                 else
                     error('Wrong number of sensors chosen (n_S)');
-                end           
+                end   
+            else
+                for i = 1:1:obj.N_P
+                    % Move Particle, add noise
+                    obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
+                    % Simulate measurements based on the pose of the particles
+                    sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
+                    % Store measurements
+                    if obj.N_S == 1
+                        obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
+                    elseif obj.N_S == 2
+                        obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
+                        obj.ParticlesMeasurements{2}(obj.CounterMeasurements,i) = sensorParticleData.left;
+                    else
+                        error('Wrong number of sensors chosen (n_S)');
+                    end           
+                end
             end
+
             % Allocate real measurements to storage array
             if obj.N_S == 1
                 obj.Measurements{1}(obj.CounterMeasurements) = sensorData.right;
@@ -169,17 +241,18 @@ classdef ParticleFilter
             if (obj.CounterMeasurements == obj.N_M)
                 obj.CounterMeasurements = 0;
                 % TODO: Find intelligent update strategies
-                if obj.N_S == 1
-                    obj.Particles(4,i) = 1 - abs(mean(obj.Measurements{1}(:)) ...
-                                - mean(obj.ParticlesMeasurements{1}(:,i)));
-                elseif mode == 2
-                    w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
-                                - mean(obj.ParticlesMeasurements{1}(:,i)));
-                    w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
-                                - mean(obj.ParticlesMeasurements{2}(:,i)));
-                    obj.Particles(4,i) = w1 + w2;
+                for i=1:1:obj.N_P
+                    if obj.N_S == 1
+                        obj.Particles(4,i) = 1 - abs(mean(obj.Measurements{1}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{1}(:,i)));
+                    elseif mode == 2
+                        w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{1}(:,i)));
+                        w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{2}(:,i)));
+                        obj.Particles(4,i) = w1 + w2;
+                    end
                 end
-
             end
 
             % Normalize weights and calculate effective number of particles

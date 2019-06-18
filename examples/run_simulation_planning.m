@@ -6,7 +6,7 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_05.mat';  
+map = 'map_01.mat';  
 load(map);
 pose = [0; 0; 0];
 
@@ -14,8 +14,10 @@ pose = [0; 0; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
-mode = 1;       % Random Walk
-[controlUnit,coverageResults] = controlUnit.completeCoverage(100,mode);
+mode = 2;       % Random Walk
+tic
+[controlUnit,coverageResults] = controlUnit.completeCoverage(10,mode);
+time = toc
 
 %% Plot some results
 figure(2)

@@ -15,6 +15,7 @@ classdef GlobalLocalizer
         % Parameters
         sensorPosition;      	% Sensor position
         L_min;                  % minimum length of line segment
+        L_nh;                   % Neighbourhood length
         E_max;                  % maximum error for line segment
         U_min;                  % percentage of minimum circumeference before taking a decision
         C_min;                  % Minimum allowed correlation error
@@ -49,6 +50,7 @@ classdef GlobalLocalizer
             % Algorithm
             out = get_config('globalLocalization');
             obj.L_min = out.l_min;
+            obj.L_nh = out.l_nh;
             obj.E_max = out.e_max;
             obj.U_min = out.u_min;
             obj.C_min = out.c_min;
@@ -87,9 +89,9 @@ classdef GlobalLocalizer
                     for i=2:1:length(obj.DP(1,:))
                         l_DP = l_DP + norm(obj.DP(:,i) - obj.DP(:,i-1));
                     end
-                    if l_DP > obj.U_min*obj.PolyMap.Circumference
+                    if l_DP > obj.U_min*(2*obj.L_nh)
                         % Delete last DP if too long
-                        if l_DP > obj.PolyMap.Circumference         
+                        if l_DP > (2*obj.L_nh)         
                             obj.DP(:,1) = [];
                         end
                         compParam.c_min = obj.C_min;

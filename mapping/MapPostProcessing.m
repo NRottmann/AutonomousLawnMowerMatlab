@@ -59,6 +59,7 @@ classdef MapPostProcessing
             %
             
             disp('Compare estimated map with groundtruth. This can take somewhile ...')
+            optAcc = 10^(-6);
             
             % Transform maps in set of points
             X1 = [obj.EstMap.x; obj.EstMap.y];
@@ -98,7 +99,7 @@ classdef MapPostProcessing
                 % Compare the maps
                 Poly1 = polyshape(X1(1,:),X1(2,:),'Simplify',false);
                 Poly2 = polyshape(X2(1,:),X2(2,:),'Simplify',false);
-                Comp = area(xor(Poly1,Poly2))/area(Poly2);
+                Comp = area(xor(Poly1,Poly2))/area(union(Poly1,Poly2));
             end
             if (mode == 2) || (mode == 3) || (mode == 4)
                 if mode == 2
@@ -112,21 +113,20 @@ classdef MapPostProcessing
                 dv = -[x_center_1 - x_center_2, y_center_1 - y_center_2];
                 Poly1 = translate(Poly1,dv(1),dv(2));
                 refpoint = [x_center_2, y_center_2];
-                Comp = area(xor(Poly1,Poly2))/area(Poly2);
-                [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1,Poly2,Comp,refpoint,10^(-3));
+                Comp = area(xor(Poly1,Poly2))/area(union(Poly1,Poly2));
+ %               [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1,Poly2,Comp,refpoint,10^(-3));
                 if mode == 4
                     % Get some different rotations
-                    phi = 0:45:180;
+                    phi = 0:1:180;
                     Poly1_tmp = cell(length(phi),1);
                     Comp_tmp = zeros(length(phi),1);
                     for ii=1:1:length(phi)
                         Poly1_tmp{ii} = rotate(Poly1,phi(ii),refpoint);
-                        Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(Poly2);
-                        [Poly1_tmp{ii},Comp_tmp(ii)] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{ii},Poly2,Comp_tmp(ii),refpoint,10^(-6));
-                        % Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(Poly2);
+                        Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(union(Poly1_tmp{ii},Poly2));
+                        % [Poly1_tmp{ii},Comp_tmp(ii)] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{ii},Poly2,Comp_tmp(ii),refpoint,optAcc);
                     end
                     [~,idx] = min(Comp_tmp);
-                    [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{idx},Poly2,Comp_tmp(idx),refpoint,10^(-6));
+                    [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{idx},Poly2,Comp_tmp(idx),refpoint,optAcc);
                 end
             end 
             X1 = [Poly1.Vertices' Poly1.Vertices(1,:)'];
@@ -146,6 +146,7 @@ classdef MapPostProcessing
             results.closedDP = obj.ClosedDP;
             results.compDP = X1;
             results.trueDP = X2;
+            results.turnedEstPolyMap = genPolyMap(X1(1,:),X1(2,:));
             results.error = Comp;
             
             disp('Comparison completed successfully!')
@@ -218,22 +219,23 @@ classdef MapPostProcessing
                 Poly1_x = translate(Poly1,dx,0);
                 Poly1_y = translate(Poly1,0,dx);
                 Poly1_phi = rotate(Poly1,dx,refpoint);
-                J(1) = (area(xor(Poly1_x,Poly2))/area(Poly2) - Comp) / dx;
-                J(2) = (area(xor(Poly1_y,Poly2))/area(Poly2) - Comp) / dx;
-                J(3) = (area(xor(Poly1_phi,Poly2))/area(Poly2) - Comp) / dx;
+                J(1) = (area(xor(Poly1_x,Poly2))/area(union(Poly1_x,Poly2)) - Comp) / dx;
+                J(2) = (area(xor(Poly1_y,Poly2))/area(union(Poly1_y,Poly2)) - Comp) / dx;
+                J(3) = (area(xor(Poly1_phi,Poly2))/area(union(Poly1_phi,Poly2)) - Comp) / dx;
                 Delta_F = J*Comp;
                 alpha = (Delta_F)'*(J - J_old)/(norm(J - J_old)^2);
                 trans = - alpha * Delta_F;
                 for jj=1:1:3
                     if ~isfinite(trans(jj)) || ~isreal(trans(jj)) || isnan(trans(jj))
-                        trans(jj) = 0;
+                        trans(jj) = -10^(-6) * Delta_F;
                     end
                 end
                 Poly1 = rotate(Poly1,trans(3),refpoint);
                 Poly1 = translate(Poly1,trans(1),trans(2));
-                Comp_tmp = area(xor(Poly1,Poly2))/area(Poly2);
+                Comp_tmp = area(xor(Poly1,Poly2))/area(union(Poly1,Poly2));
                 diff = Comp - Comp_tmp;
                 Comp = Comp_tmp;
+                disp(Comp)
             end
         end
         function [Poly1,Comp] = gradientDescentRotation(Poly1,Poly2,Comp,refpoint,acc)
@@ -245,7 +247,7 @@ classdef MapPostProcessing
             while diff > acc         
                 % Generate numerical differetiate
                 Poly1_phi = rotate(Poly1,dx,refpoint);
-                J = (area(xor(Poly1_phi,Poly2))/area(Poly2) - Comp) / dx;
+                J = (area(xor(Poly1_phi,Poly2))/area(union(Poly1_phi,Poly2)) - Comp) / dx;
                 Delta_F = J*Comp;
                 alpha = (Delta_F)'*(J - J_old)/(norm(J - J_old)^2);
                 trans = - alpha * Delta_F;
@@ -253,7 +255,7 @@ classdef MapPostProcessing
                     trans = 0;
                 end
                 Poly1 = rotate(Poly1,trans,refpoint);
-                Comp_tmp = area(xor(Poly1,Poly2))/area(Poly2)
+                Comp_tmp = area(xor(Poly1,Poly2))/area(union(Poly1,Poly2))
                 diff = Comp - Comp_tmp;
                 Comp = Comp_tmp;
             end
