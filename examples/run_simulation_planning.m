@@ -8,7 +8,7 @@ clc
 %% Choose the map and starting pose
 map = 'map_01.mat';  
 load(map);
-pose = [0; 0; 0];
+pose = [0; 0.1; 0];
 
 %% Initialize the control unit
 controlUnit = ControlUnit(polyMap,pose);
@@ -20,7 +20,7 @@ tic
 time = toc
 
 %% Plot some results
-figure(2)
+figure()
 subplot(1,2,1)
 plot(polyMap.x,polyMap.y)
 hold on
@@ -31,8 +31,31 @@ hold on
 plot(coverageResults.estPath(1,:),coverageResults.estPath(2,:))
 hold off
 figure()
+surf(coverageResults.groundTruth');
+title('groundTruth');
+figure()
 surf(coverageResults.particleCoverageMap');
 title('ParticleCoverageMap');
 figure()
 surf(coverageResults.coverageMap');
 title('CoverageMap');
+figure()
+particle = coverageResults.particleCoverageMap;
+particle(particle < controlUnit.Threshhold) = 0;
+particle(particle >= controlUnit.Threshhold) = 1;
+surf(particle');
+title('ParticleCoverageMapThreshhold');
+figure()
+coverage = coverageResults.coverageMap;
+coverage(coverage < controlUnit.Threshhold) = 0;
+coverage(coverage >= controlUnit.Threshhold) = 1;
+surf(coverage');
+title('CoverageMapThreshhold');
+if mode == 2
+    figure()
+    surf(coverageResults.neuralActivity');
+    title('Neural Activity');
+    figure()
+    surf(coverageResults.externalInput');
+    title('External Input');
+end

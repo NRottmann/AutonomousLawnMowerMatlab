@@ -33,9 +33,11 @@ classdef ControlUnit
         EstPolyMap;
         Pose;
         EstPose;
+        Resolution;
         
         %% Parameters
         Dt;
+        Threshhold;
     end
     
     methods
@@ -80,6 +82,10 @@ classdef ControlUnit
             %% Get Parameters
             out = get_config('system');
             obj.Dt =  out.dt;
+            
+            out = get_config('coverageMap');
+            obj.Resolution = out.resolution;
+            obj.Threshhold = out.threshhold;
         end
         
         function [obj,path,estPath] = wallFollowing(obj,T,mode)
@@ -289,7 +295,7 @@ classdef ControlUnit
             % Initialize storage capacities and allocate pose
             path = zeros(3,I+1);
             path(:,1) = obj.Pose;
-            estPath = zeros(3,I+1);
+            estPath = path;
             
             % Decide which mode
             if mode == 1
@@ -324,7 +330,19 @@ classdef ControlUnit
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+                    estimatedGroundTruth = groundTruth(estPath, obj.PolyMap, obj.Resolution);
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),estimatedGroundTruth);
+%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+%                     idx_x = ceil((estPath(1, i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+%                     idx_x = (idx_x-0.5)/obj.Resolution + obj.PolyMap.XWorldLimits(1);
+%                     idx_y = ceil((estPath(2, i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+%                     idx_y = (idx_y-0.5)/obj.Resolution + obj.PolyMap.YWorldLimits(1);
+%                     while true
+%                         [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+%                         if ~((x(1) == idx_x) && (x(2) == idx_y))
+%                             break;
+%                         end
+%                     end
                     [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
@@ -342,8 +360,10 @@ classdef ControlUnit
             results.path = path;
             results.estPath = estPath;
             results.coverageMap = obj.ClassCoverage.CoverageMap;
-            results.particleCoverageMaps = obj.ClassParticleFilter.ParticleCoverageMaps;
             results.particleCoverageMap = obj.ClassParticleFilter.CoverageMap;
+            results.neuralActivity = obj.ClassNNCCPP.NeuralActivity;
+            results.externalInput = obj.ClassNNCCPP.ExternalInput;
+            results.groundTruth = groundTruth(path, obj.PolyMap, obj.Resolution);
         end
     end    
 end

@@ -16,6 +16,7 @@ classdef NNCCPP
         N;                  % Total number of cells x-dimension
         M;                  % Total number of cells y-dimension
         TargetPosition;     % Current target position
+        Gradient;
         
         % Parameter
         Resolution;         % Resolution of coverage map
@@ -25,6 +26,7 @@ classdef NNCCPP
         E;                  % Gain
         C;                  % Control gain  
         Threshhold          % Threshhold for the coverageMap
+        G;
 
         Dt;                 % Step time   
     end
@@ -39,15 +41,14 @@ classdef NNCCPP
             obj.E = out.e;
             obj.C = out.c;
             obj.Threshhold = out.threshhold;
+            obj.Dt = out.dt;
+            obj.G = out.g;
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
             
-            out = get_config('computation');
-            obj.Parallel = out.parallel; 
-            
-            out = get_config('system');
-            obj.Dt = out.dt;
+%             out = get_config('system');
+%             obj.Dt = out.dt;
         end
         
         function obj = initializeNeuralNet(obj,polyMap)
@@ -76,9 +77,13 @@ classdef NNCCPP
                 x_s = x_s + stepSize;
             end
             
+            obj.Gradient = ones(obj.N, obj.M)-obj.ObstacleMap;
+            for i = 1:1:obj.M
+                obj.Gradient(:,i) = obj.Gradient(:, i) .* (obj.G*(obj.M - i - (polyMap.YWorldLimits(2) - polyMap.YWorldLimits(1))));
+            end
+            
             % Initialize matrix for neural activity
             obj.NeuralActivity = zeros(obj.N,obj.M);
-            obj.NeuralActivity = ones(obj.N,obj.M) - 2*obj.ObstacleMap;
             
             % Initialize current target position
             obj.TargetPosition = zeros(2,1);
@@ -101,8 +106,8 @@ classdef NNCCPP
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
             coverageMap_tmp(idx_x,idx_y) = 1;
-            coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
-            coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
+%             coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
+%             coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
             obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
             obj.ExternalInput(obj.ExternalInput < -obj.E) = -obj.E;
             
@@ -111,7 +116,6 @@ classdef NNCCPP
             % Plan the next step
             obj = planning(obj,pose);
             x = obj.TargetPosition;
-%             surf(obj.ExternalInput')
         end
         
         function [obj] = updateNeuralActivity(obj)
@@ -159,12 +163,8 @@ classdef NNCCPP
                 end
             end
             Xp = Xp_tmp;
-%             m = max(max(Xp));
-%             Xp = Xp / m;
-%             surf(Xp');
             
             I = obj.ExternalInput;
-%             surf(I')
             Ip = I;                     % positiv external inputs
             Ip(Ip < 0) = 0;
             In = I;                     % negativ external inputs
@@ -173,11 +173,8 @@ classdef NNCCPP
 
             dX = -obj.A*X + (obj.B*ones(obj.N,obj.M) - X) .* (Ip + Xp) ...
                             - (obj.D*ones(obj.N,obj.M) + X) .* In;
-            
-%             surf(dX')
+                        
             obj.NeuralActivity = X + dX*obj.Dt;
-            
-            surf(obj.NeuralActivity')
         end
         
     	function obj = planning(obj,pose)   
@@ -189,6 +186,8 @@ classdef NNCCPP
             
             % Allocate neural activity
             X = obj.NeuralActivity;
+            X = X + obj.Gradient;
+            surf(X')
             
             % Get the index according to the position of the vehicle
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
@@ -198,11 +197,19 @@ classdef NNCCPP
             % Go through all neighbours and decide where to go next
             for i=-1:1:1
                 for j=-1:1:1
-                    if (X(idx_x,idx_y) <= X(idx_x+i,idx_y+j)) % && ~(i==0 && j==0)           % Do if value of cell is higher then initialPose and the cell is not the initial cell
-                        if ((i+idx_x>=1 && i+idx_x<=obj.N) && (j+idx_y>=1 && j+idx_y<=obj.M))   % Check if out of bounds
+                    if ((i+idx_x>=1 && i+idx_x<=obj.N) && (j+idx_y>=1 && j+idx_y<=obj.M))   % Check if out of bounds
+                        if (X(idx_x,idx_y) <= X(idx_x+i,idx_y+j)) % && ~(i==0 && j==0)           % Do if value of cell is higher then initialPose and the cell is not the initial cell
                             ii = idx_x + i;
                             jj = idx_y + j;
-                            dec_tmp  = X(ii,jj) - obj.C * abs(i*j);
+                            if pose(3) >= 0
+                                orientation = mod(pose(3), 2*pi);
+                                orientationDiff = abs(orientate(i,j) - orientation);
+                                dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+                            else
+                                orientation = mod(pose(3), -2*pi);
+                                orientationDiff = abs(orientate(i,j) + orientation);
+                                dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+                            end
                             if dec_tmp > dec
                                 obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
                                 obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
