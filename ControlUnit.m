@@ -330,9 +330,9 @@ classdef ControlUnit
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-                    estimatedGroundTruth = groundTruth(estPath, obj.PolyMap, obj.Resolution);
-                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),estimatedGroundTruth);
-%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+%                     estimatedGroundTruth = groundTruth(estPath, obj.PolyMap, obj.Resolution);
+%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),estimatedGroundTruth);
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
 %                     idx_x = ceil((estPath(1, i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
 %                     idx_x = (idx_x-0.5)/obj.Resolution + obj.PolyMap.XWorldLimits(1);
 %                     idx_y = ceil((estPath(2, i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);

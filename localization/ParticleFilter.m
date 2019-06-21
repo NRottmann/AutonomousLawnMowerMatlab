@@ -63,6 +63,7 @@ classdef ParticleFilter
             obj.N_M = out.n_M;
             obj.IncreaseNoise = out.increaseNoise;
             obj.N_S = out.n_S;
+            obj.ThresholdResampling = out.thresholdResampling;
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;

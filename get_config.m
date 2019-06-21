@@ -22,16 +22,16 @@ switch caseString
         out.posLeft = [0.265; 0.09];
         out.noise = 0.1;        % Noise of the sensor, 0 means no noise, 1 means totally random
     case 'kinModelNoise'
-        out.a = [0.0012,0.001,0.0057,0.0032,0.0035,0.0046];     % Standard deviation parameters
-%         out.a = [sqrt(0.0012),sqrt(0.001),sqrt(0.0057),sqrt(0.0032),sqrt(0.0035),sqrt(0.0046)];     % Standard deviation parameters
+        % out.a = [0.0012,0.001,0.0057,0.0032,0.0035,0.0046];     % Standard deviation parameters
+        out.a = [sqrt(0.0012),sqrt(0.001),sqrt(0.0057),sqrt(0.0032),sqrt(0.0035),sqrt(0.0046)];     % Standard deviation parameters
         % out.a = [0.1,0.1,0.1,0.1,0.1,0.1];
     case 'mowerParameter'
         out.L = 0.1826;
         out.dR = 0.2147;
         out.dL = 0.2144;
     case 'odometryModelNoise'
-        out.a = [0.0254, 0.0111, 0.0107, 0.0097];
-%         out.a = [0.0849, 0.0412, 0.0316, 0.0173];
+       % out.a = [0.0254, 0.0111, 0.0107, 0.0097];
+        out.a = [0.0849, 0.0412, 0.0316, 0.0173];
         % out.a = [0.4, 0.4, 0.4, 0.4];
     case 'system'
         out.dt = 0.05;
@@ -67,7 +67,7 @@ switch caseString
         out.b = 1;            % Upper bound
         out.d = 1;          % Lower bound
         out.e = 100;              % Maximum Gain, for gradient
-        out.c = 0.1;          % Control gain
+        out.c = 0.0;          % Control gain
         out.threshhold = 0.8;
         out.dt = 0.01;
         out.g = 0.1;

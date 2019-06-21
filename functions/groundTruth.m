@@ -6,7 +6,9 @@ A = zeros(N, M);
 for i = 1:1:size(path, 2)
     idx_x = ceil((path(1, i) - polyMap.XWorldLimits(1)) * resolution);
     idx_y = ceil((path(2, i) - polyMap.YWorldLimits(1)) * resolution);
-    A(idx_x, idx_y) = 1;
+    if ((idx_x>=1 && idx_x<=N) && (idx_y>=1 && idx_y<=M))
+        A(idx_x, idx_y) = 1;
+    end
 end
 end
 
