@@ -10,5 +10,6 @@ for i = 1:1:size(path, 2)
         A(idx_x, idx_y) = 1;
     end
 end
+
 end
 

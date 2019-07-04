@@ -253,10 +253,11 @@ classdef ParticleFilter
                 for i=1:1:obj.N_P
                     for j=1:1:numSamples(i)
                         tempParticles(:,idx) = obj.Particles(:,i);
+                        tempCoverageMaps(idx, :, :) = obj.ParticleCoverageMaps(idx, :, :);
                         idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
                         idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
                         if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
-                            tempCoverageMaps(i, idx_x, idx_y) = 1;
+                            tempCoverageMaps(idx, idx_x, idx_y) = 1;
                         end
                         idx = idx + 1;
                     end

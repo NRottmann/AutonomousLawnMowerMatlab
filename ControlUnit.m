@@ -330,19 +330,10 @@ classdef ControlUnit
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-%                     estimatedGroundTruth = groundTruth(estPath, obj.PolyMap, obj.Resolution);
-%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),estimatedGroundTruth);
-                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
-%                     idx_x = ceil((estPath(1, i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-%                     idx_x = (idx_x-0.5)/obj.Resolution + obj.PolyMap.XWorldLimits(1);
-%                     idx_y = ceil((estPath(2, i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-%                     idx_y = (idx_y-0.5)/obj.Resolution + obj.PolyMap.YWorldLimits(1);
-%                     while true
-%                         [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
-%                         if ~((x(1) == idx_x) && (x(2) == idx_y))
-%                             break;
-%                         end
-%                     end
+%                     [estimatedGroundTruth, p] = groundTruth(estPath, obj.PolyMap, obj.Resolution);
+                    ground = groundTruth(estPath, obj.PolyMap, obj.Resolution);
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),ground);
+%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                     [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
