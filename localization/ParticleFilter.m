@@ -215,29 +215,29 @@ classdef ParticleFilter
             end
             % If enough measurements have been taken, update weights for all particles
             if (obj.CounterMeasurements == obj.N_M)
-                obj.CounterMeasurements = 0;
-                % TODO: Find intelligent update strategies
-                for i=1:1:obj.N_P
+                    obj.CounterMeasurements = 0;
+                for i = 1:1:obj.N_P
+                    % TODO: Find intelligent update strategies
                     if obj.N_S == 1
                         obj.Particles(4,i) = 1 - abs(mean(obj.Measurements{1}(:)) ...
                                     - mean(obj.ParticlesMeasurements{1}(:,i)));
-                    elseif mode == 2
+                    elseif obj.N_S == 2
                         w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
                                     - mean(obj.ParticlesMeasurements{1}(:,i)));
                         w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
                                     - mean(obj.ParticlesMeasurements{2}(:,i)));
-                        obj.Particles(4,i) = w1 + w2;
+                        obj.Particles(4,i) = ((w1 + w2)/2) + 0.1;
                     end
                 end
             end
 
             % Normalize weights and calculate effective number of particles
             obj.Particles(4,:) = obj.Particles(4,:) / sum(obj.Particles(4,:));
-            N_eff = 1 / sum(obj.Particles(4,:).^2);
+            N_eff = (1 / sum(obj.Particles(4,:).^2)) / obj.N_P;
 
             % Resampling, do only if N_eff < a*N
-            if (N_eff < obj.ThresholdResampling * obj.N_P)
-                disp('reampling')
+            if (N_eff < obj.ThresholdResampling)
+                disp('resampling')
                 % Create Weighting vector
                 weightVec = zeros(obj.N_P+1,1);
                 for i=1:1:obj.N_P
