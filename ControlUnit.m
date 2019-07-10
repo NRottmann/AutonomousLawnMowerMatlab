@@ -38,6 +38,7 @@ classdef ControlUnit
         %% Parameters
         Dt;
         Threshhold;
+        WallFollow;
     end
     
     methods
@@ -86,6 +87,7 @@ classdef ControlUnit
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
             obj.Threshhold = out.threshhold;
+            obj.WallFollow = out.wallFollow;
         end
         
         function [obj,path,estPath] = wallFollowing(obj,T,mode)
@@ -317,6 +319,7 @@ classdef ControlUnit
                     % Step 5: Use Particle Filter
                     obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
+                    spread = obj.ClassParticleFilter.getParticleSpread()
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                 end
@@ -325,16 +328,27 @@ classdef ControlUnit
                 obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
                 obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
                 obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
+                spread = 0;
+                followWall = false;
                 for i=1:1:I
                     disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-%                     [estimatedGroundTruth, p] = groundTruth(estPath, obj.PolyMap, obj.Resolution);
-                    ground = groundTruth(estPath, obj.PolyMap, obj.Resolution);
-                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),ground);
-%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
-                    [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
+%                     ground = groundTruth(estPath, obj.PolyMap, obj.Resolution);
+%                     [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+                    [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                    if spread > obj.WallFollow
+                        followWall = true;
+                    end
+                    if followWall && spread > obj.WallFollow-0.1
+                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                        disp('following');
+                    else
+                        disp('netting');
+                        followWall = false;
+                        [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
+                    end
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
                     % Step 4: Corrupt pose with noise

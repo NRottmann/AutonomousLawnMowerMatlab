@@ -58,17 +58,18 @@ switch caseString
         out.n_M = 20;                       % Measure 20 times before updating weights of the particle filter
         out.increaseNoise = 1;            	% Factor which increases the noise of the odometry model for the particles
         out.n_S = 1;                      	% Number sensors used, (1 or 2)
-        out.thresholdResampling = 0.0;   	% Resampling treshold  
+        out.thresholdResampling = 0.2;   	% Resampling treshold  
     case 'coverageMap'
-        out.resolution = 10;                % Resolution in cells per meter
+        out.resolution = 5;                % Resolution in cells per meter
         out.threshhold = 0.8;
+        out.wallFollow = 0.75;
     case 'planning'
         out.a = 10;          % Passive decay rate
         out.b = 1;            % Upper bound
         out.d = 1;          % Lower bound
         out.e = 100;              % Maximum Gain, for gradient
         out.c = 0.0;          % Control gain
-        out.threshhold = 0.8;
+        out.threshhold = 0.6;
         out.dt = 0.01;
         out.g = 0.1;
 end

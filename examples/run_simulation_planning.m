@@ -15,7 +15,7 @@ controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
 mode = 2;       % Random Walk(1), NNCCPP(2)
-[controlUnit,coverageResults] = controlUnit.completeCoverage(50, mode);
+[controlUnit,coverageResults] = controlUnit.completeCoverage(30, mode);
 
 %% Plot some results
 figure()

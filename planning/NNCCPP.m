@@ -81,6 +81,7 @@ classdef NNCCPP
             for i = 1:1:obj.M
                 obj.Gradient(:,i) = obj.Gradient(:, i) .* (obj.G*(obj.M - i - (polyMap.YWorldLimits(2) - polyMap.YWorldLimits(1))));
             end
+            obj.Gradient = obj.Gradient + obj.M*obj.G;
             
             % Initialize matrix for neural activity
             obj.NeuralActivity = zeros(obj.N,obj.M);
@@ -106,8 +107,8 @@ classdef NNCCPP
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
             coverageMap_tmp(idx_x,idx_y) = 1;
-%             coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
-%             coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
+            coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
+            coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
             obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
             obj.ExternalInput(obj.ExternalInput < -obj.E) = -obj.E;
             
@@ -186,7 +187,7 @@ classdef NNCCPP
             
             % Allocate neural activity
             X = obj.NeuralActivity;
-            X = X + obj.Gradient;
+            X = X .* obj.Gradient;
             surf(X')
             
             % Get the index according to the position of the vehicle
