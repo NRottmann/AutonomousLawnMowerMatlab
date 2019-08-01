@@ -210,10 +210,10 @@ classdef PoseGraphOptimization
             else
                 % Bayes Optimization
                 disp('Optimize parameters for loop closure detection ...')
-                l_nh = optimizableVariable('l_nh',[1,30]);
+                l_nh = optimizableVariable('l_nh',[1,200]);
                 c_min = optimizableVariable('c_min',[0.01,10],'Transform','log');
                 thetaOpt = [l_nh,c_min];
-                results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',0,'PlotFcn',{});
+                results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
                 [SP,L,corr] = calculateSP(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;
@@ -385,7 +385,7 @@ classdef PoseGraphOptimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
                 thetaOpt = [gamma1,gamma2];
-                results = bayesopt(@PGOCost,thetaOpt,'Verbose',0,'PlotFcn',{});
+                results = bayesopt(@PGOCost,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
                 [X_opt] = getOptimizedPath(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;

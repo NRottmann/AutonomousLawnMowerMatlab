@@ -7,7 +7,7 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_05.mat';  
+map = 'map_19.mat';  
 load(map);
 pose = [0; 0; 0];
 
@@ -15,15 +15,23 @@ pose = [0; 0; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Follow the boundary line
-T = 3000;       % Simulation time in seconds
+T = 12000;       % Simulation time in seconds
 startPose = 0;  % Choose a random start pose
 [controlUnit,path,estPath] = controlUnit.wallFollowing(T,startPose);
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = false;
-optimize.mapping = false;
+optimize.loopClosure = true;
+optimize.mapping = true;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
-%% Plot the map estimate
-figure(1)
+%% Compare estimated map with groundtruth
+comparisonResults = controlUnit.compare(4);
+
+%% Plots
+figure,
+plot(estPath(1,:),estPath(2,:))
+title('Estimated Path')
+
+figure;
 plot(mappingResults.estMap.x,mappingResults.estMap.y)
+title('Map Estimate')
