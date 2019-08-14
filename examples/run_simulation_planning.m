@@ -14,8 +14,11 @@ pose = [0.1; 0.1; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
-mode = 2;       % Random Walk(1), NNCCPP(2)
-[controlUnit,coverageResults] = controlUnit.completeCoverage(300, mode);
+mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4)
+[controlUnit,coverageResults] = controlUnit.completeCoverage(0.9, 4);
+coverageResults.polyMap = polyMap;
+
+% save('random7200.mat', 'coverageResults')
 
 %% Plot some results
 figure()

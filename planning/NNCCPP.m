@@ -211,11 +211,11 @@ classdef NNCCPP
                                 orientationDiff = abs(orientate(i,j) + orientation);
                                 dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
                             end
-                            if dec_tmp > dec
-                                obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
-                                obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
-                                dec = dec_tmp;
-                            end
+                                if dec_tmp > dec
+                                    obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
+                                    obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
+                                    dec = dec_tmp;
+                                end
                         end
                     end
                 end
