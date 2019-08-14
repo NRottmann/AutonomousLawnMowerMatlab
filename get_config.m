@@ -57,7 +57,7 @@ switch caseString
         out.c_min = 1.0;
         out.c_diff = 0;
     case 'particleFilter'
-        out.n_P = 200;                      % Number particles
+        out.n_P = 250;                      % Number particles
         out.poseVariance = [0.5;0.5;0.5];   % Variance for distributing the particles around a initial pose estimate
         out.n_M = 1;                        % Measure n_M times before updating weights of the particle filter
         out.increaseNoise = 1;            	% Factor which increases the noise of the odometry model for the particles
@@ -73,7 +73,7 @@ switch caseString
         out.d = 1;          % Lower bound
         out.e = 100;              % Maximum Gain, for gradient
         out.c = 0;          % Control gain
-        out.threshhold = 0.75;
+        out.threshhold = 0.9;
         out.dt = 0.01;
         out.g = 2*pi+1;
 end

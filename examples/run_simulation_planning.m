@@ -15,7 +15,7 @@ controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
 mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4)
-[controlUnit,coverageResults] = controlUnit.completeCoverage(0.9, 4);
+[controlUnit,coverageResults] = controlUnit.completeCoverage(50, mode);
 coverageResults.polyMap = polyMap;
 
 % save('random7200.mat', 'coverageResults')
@@ -52,7 +52,7 @@ coverage(coverage < controlUnit.Threshhold) = 0;
 coverage(coverage >= controlUnit.Threshhold) = 1;
 surf(coverage');
 title('CoverageMapThreshhold');
-if mode == 2
+if mode == 2 || mode == 4
     figure()
     surf(coverageResults.neuralActivity');
     title('Neural Activity');
