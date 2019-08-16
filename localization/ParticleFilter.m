@@ -148,7 +148,7 @@ classdef ParticleFilter
             end
         end
         
-        function [obj] = updateParticles(obj,sensorData,odometryData)
+        function [obj] = updateParticles(obj,sensorData,odometryData, relocating)
             % This methods updates the particles from the particle filter
             % based on the measurements (odometry, sensorData)P
             % Syntax:
@@ -172,10 +172,12 @@ classdef ParticleFilter
             for i = 1:1:obj.N_P
                 % Move Particle, add noise
                 obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
-                idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-                if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
-                    obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
+                if ~relocating
+                    idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                    if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
+                        obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
+                    end
                 end
                 % Simulate measurements based on the pose of the particles
                 sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
@@ -253,25 +255,31 @@ classdef ParticleFilter
                 for i=1:1:obj.N_P
                     for j=1:1:numSamples(i)
                         tempParticles(:,idx) = obj.Particles(:,i);
-                        tempCoverageMaps(idx, :, :) = obj.ParticleCoverageMaps(idx, :, :);
-                        idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                        idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-                        if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
-                            tempCoverageMaps(idx, idx_x, idx_y) = 1;
+                        if ~relocating
+                            tempCoverageMaps(idx, :, :) = obj.ParticleCoverageMaps(idx, :, :);
+                            idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                            idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                            if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
+                                tempCoverageMaps(idx, idx_x, idx_y) = 1;
+                            end
                         end
                         idx = idx + 1;
                     end
                 end
                 % Allocate new Particles
                 obj.Particles = tempParticles;
-                obj.ParticleCoverageMaps = tempCoverageMaps;
+                if ~relocating
+                    obj.ParticleCoverageMaps = tempCoverageMaps;
+                end
             end 
             
-            obj.CoverageMap = zeros(obj.N,obj.M);
-            for i = 1:1:obj.N_P
-                obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));
+            if ~relocating
+                obj.CoverageMap = zeros(obj.N,obj.M);
+                for i = 1:1:obj.N_P
+                    obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));
+                end
+                obj.CoverageMap = obj.CoverageMap / obj.N_P;
             end
-            obj.CoverageMap = obj.CoverageMap / obj.N_P;
         end
   
         function [pose,variance] = getPoseEstimate(obj)
