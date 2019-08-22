@@ -16,6 +16,7 @@ classdef PoseGraphOptimization
         E_max;
         L_nh;           % Parameter for correlation calculation
         C_min;
+        Phi_cycle;
         M;
         Gamma1;         % Parameter for PGO
         Gamma2;
@@ -33,6 +34,7 @@ classdef PoseGraphOptimization
             obj.E_max = out.e_max;
             obj.L_nh = out.l_nh;
             obj.C_min = out.c_min;
+            obj.Phi_cycle = out.phi_cycle;
             obj.M = out.M;
             obj.Gamma1 = out.gamma1;
             obj.Gamma2 = out.gamma2;
@@ -81,10 +83,12 @@ classdef PoseGraphOptimization
             disp('Search for loop closures ...')
             correlationParam.l_nh = obj.L_nh;
             correlationParam.c_min = obj.C_min;
+            correlationParam.phi_cycle = obj.Phi_cycle;
             correlationParam.m = obj.M;
-            [SP,corr,L,optimParam] = PoseGraphOptimization.generateSPs(DP,correlationParam,optimize.loopClosure);
+            [SP,corr,L,Phi,optimParam] = PoseGraphOptimization.generateSPs(DP,correlationParam,optimize.loopClosure);
             obj.L_nh = optimParam.l_nh;
             obj.C_min = optimParam.c_min;
+            obj.Phi_cycle = optimParam.phi_cycle;
             disp(['Found ',num2str((sum(sum(SP))-length(SP(1,:)))),' loop closures!'])
             
             % (4) PGO
@@ -156,7 +160,7 @@ classdef PoseGraphOptimization
             end   
         end
         
-        function [SP,corr,L,optimParam] = generateSPs(data,param,optimize)
+        function [SP,corr,L,Phi,optimParam] = generateSPs(data,param,optimize)
             % Calculate the similar points in regard to the given data set
             % and the given parameters
             % 
@@ -205,40 +209,57 @@ classdef PoseGraphOptimization
             % Decide wether a parameter optimization is required or not
             if ~optimize
                 % Calculate similar points
-                [SP,L,corr] = calculateSP(param);
+                [SP,L,Phi,corr] = calculateSP(param);
                 optimParam = param;
             else
                 % Bayes Optimization
                 disp('Optimize parameters for loop closure detection ...')
-                l_nh = optimizableVariable('l_nh',[1,200]);
+                l_nh = optimizableVariable('l_nh',[1,50]);
                 c_min = optimizableVariable('c_min',[0.01,10],'Transform','log');
-                thetaOpt = [l_nh,c_min];
+                phi_cycle = optimizableVariable('phi_cycle',[pi/2,pi]);
+                thetaOpt = [l_nh,c_min,phi_cycle];
                 results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
-                [SP,L,corr] = calculateSP(results.XAtMinObjective);
+                [SP,L,Phi,corr] = calculateSP(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;
                 disp(['Optimized Parameters:' newline 'l_nh:  ' num2str(optimParam.l_nh) newline 'c_min: ' num2str(optimParam.c_min)])
             end
             
             % Define cost function for Bayesian Optimization
             function cost = loopClosureCost(theta)
-                [~,U,~] = calculateSP(theta);
-                cost = inf;
-                for ll = 1:1:round(length(U)/10)
-                    GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
-%                     newcost = GMModel.NegativeLogLikelihood + (1000/length(U));
-                    newcost = GMModel.NegativeLogLikelihood/length(U);
-                    diff = cost - newcost;
-                    if diff < 1
-                        break;
-                    else
-                        cost = newcost;
+                % Get loop closing pairs
+                [~,U,U_phi,~] = calculateSP(theta);
+                % Calculate costs based on path distances
+                cost_U = inf;
+                if (size(U,1) > size(U,2))
+                    for ll = 1:1:length(U)-1
+                        GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
+                        newcost = GMModel.NegativeLogLikelihood/length(U);
+                        diff = cost_U - newcost;
+                        if diff < 1
+                            break;
+                        else
+                            cost_U = newcost;
+                        end
                     end
                 end
+                % Calculate cost based on angles
+                cost_U_phi = inf;
+                if size(U_phi,1) > size(U_phi,2)
+                    if (ll >= 2)
+                        k_GM = ll-1;
+                    else
+                        k_GM = 1;
+                    end
+                    GMModel_phi = fitgmdist(U_phi,k_GM,'RegularizationValue',0.1);
+                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/length(U_phi);
+                end
+                % Add costs together
+                cost = cost_U + cost_U_phi;
             end
             
             % This function generates the loop clsoing pairs (SP)
-            function [SP,L,corr] = calculateSP(theta)
+            function [SP,L,Phi,corr] = calculateSP(theta)
                 % (1) Calculate correlation error
                 corr = zeros(M);
                 l_evaluation = linspace(-theta.l_nh,theta.l_nh,param.m);
@@ -263,6 +284,7 @@ classdef PoseGraphOptimization
                 l_max = l_cumulated(end) - theta.l_nh;      % Maximum Length
                 SP = zeros(M);
                 L = zeros(M*M,1);                           % length between the loop closing points
+                Phi = zeros(M*M,1);                         % angle between loop closing poses
                 ll = 0;                                     % counter for the loop closing lengths
                 for ii=1:1:M
                     if l_cumulated(ii) > l_min && l_cumulated(ii) < l_max
@@ -271,15 +293,21 @@ classdef PoseGraphOptimization
                         SP(ii,locs) = 1;
                         for jj=1:1:length(locs)
                             L_new = abs(l_cumulated(ii) - l_cumulated(locs(jj)));
-                            if L_new > 1    % Avoid loop closings to near to each other
+                            Phi_new = abs(phi_cumulated(ii) - phi_cumulated(locs(jj)));
+                            % Solve cycling recurrent structures and void loop closings to near to each other
+                            if (abs(pi-rem(Phi_new,(2*pi))) > theta.phi_cycle) && (L_new > 1)
                                 ll = ll + 1;
                                 L(ll) = L_new;
+                                Phi(ll) = Phi_new;
+                            else
+                                SP(ii,locs(jj)) = 0;
                             end
                         end
                     end
                 end
                 % Shrink the array
                 L = L(1:ll);
+                Phi = Phi(1:ll);
             end
         end
         
@@ -368,7 +396,7 @@ classdef PoseGraphOptimization
                 % Calculate the circumference
                 logLikelihood = inf;
                 GMModelOld = [];
-                for ll = 1:1:round(length(L)/10)
+                for ll = 1:1:length(L)-1
                     GMModel = fitgmdist(L,ll,'RegularizationValue',0.1);
                     diff = logLikelihood - GMModel.NegativeLogLikelihood;
                     if diff < 1
@@ -404,8 +432,15 @@ classdef PoseGraphOptimization
                     end
                 end
                 % Use mixture Models to get estimated circumference
-                GMModel_tmp = fitgmdist(U,Cluster,'RegularizationValue',0.1);
-                U_mean = min(GMModel_tmp.mu);
+                if length(U) > 1
+                    GMModel_tmp = fitgmdist(U,Cluster,'RegularizationValue',0.1);
+                    U_mean = min(GMModel_tmp.mu);
+                elseif length(U) == 1
+                    U_mean = U;
+                else
+                    error('Wrong size of U!')
+                end
+                        
                 % Calculate cost
                 cost = abs(Circumference - U_mean);
             end
