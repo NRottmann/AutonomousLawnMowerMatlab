@@ -7,7 +7,7 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_19.mat';  
+map = 'map_1.mat';  
 load(map);
 pose = [0; 0; 0];
 
@@ -15,7 +15,7 @@ pose = [0; 0; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Follow the boundary line
-T = 12000;       % Simulation time in seconds
+T = 2000;       % Simulation time in seconds
 startPose = 0;  % Choose a random start pose
 [controlUnit,path,estPath] = controlUnit.wallFollowing(T,startPose);
 

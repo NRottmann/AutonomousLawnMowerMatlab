@@ -17,8 +17,12 @@ classdef PoseGraphOptimization
         L_nh;           % Parameter for correlation calculation
         C_min;
         M;
-        Gamma1;         % Parameter for PGO
+        Gamma1;         % Parameter for PGO (Loop Closure)
         Gamma2;
+        Alpha1;         % Parameter for PGO (Odometry Model)
+        Alpha2;
+        Alpha3;
+        Alpha4;
         
         BayRate;        % Bayesian Optimization Parameter
     end
@@ -37,6 +41,12 @@ classdef PoseGraphOptimization
             obj.Gamma1 = out.gamma1;
             obj.Gamma2 = out.gamma2;
             obj.BayRate = out.bayRate;
+            
+            out = get_config('odometryModelNoise');
+            obj.Alpha1 = out.a(1);
+            obj.Alpha2 = out.a(2);
+            obj.Alpha3 = out.a(3);
+            obj.Alpha4 = out.a(4);
         end
         
         function [obj,X,A] = generateMap(obj,pathData,optimize)
@@ -91,9 +101,17 @@ classdef PoseGraphOptimization
             disp('Optimize the pose graph ...')
             optParam.gamma1 = obj.Gamma1;
             optParam.gamma2 = obj.Gamma2;
+            optParam.alpha1 = obj.Alpha1;
+            optParam.alpha2 = obj.Alpha2;
+            optParam.alpha3 = obj.Alpha3;
+            optParam.alpha4 = obj.Alpha4;
             [X,A,optimParam] = PoseGraphOptimization.tutorialPGO(xi,SP,corr,L,optParam,optimize.mapping);
             obj.Gamma1 = optimParam.gamma1;
             obj.Gamma2 = optimParam.gamma2;
+            obj.Alpha1 = optimParam.alpha1;
+            obj.Alpha2 = optimParam.alpha2;
+            obj.Alpha3 = optimParam.alpha3;
+            obj.Alpha4 = optimParam.alpha4;
             disp('Pose graph optimization completed successfully!')
         end       
     end
@@ -210,7 +228,7 @@ classdef PoseGraphOptimization
             else
                 % Bayes Optimization
                 disp('Optimize parameters for loop closure detection ...')
-                l_nh = optimizableVariable('l_nh',[1,200]);
+                l_nh = optimizableVariable('l_nh',[1,l_cumulated(end)/4]);
                 c_min = optimizableVariable('c_min',[0.01,10],'Transform','log');
                 thetaOpt = [l_nh,c_min];
                 results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',1,'PlotFcn',{});
@@ -237,7 +255,7 @@ classdef PoseGraphOptimization
                 end
             end
             
-            % This function generates the loop clsoing pairs (SP)
+            % This function generates the loop closing pairs (SP)
             function [SP,L,corr] = calculateSP(theta)
                 % (1) Calculate correlation error
                 corr = zeros(M);
@@ -295,8 +313,12 @@ classdef PoseGraphOptimization
             %   corr:       Correlation matrix according to the SPs
             %   L:          The distances betwee loop closing pairs
             %   param:      Parameter for PGO 
-            %       gamma1: ...
+            %       gamma1: Parameter for the Loop Closing variance
             %       gamma2: ...
+            %       alpha1: Parameter for the odometry variance
+            %       alpha2: ...
+            %       alpha3: ...
+            %       alpha4: ...
             %   optimize:   If true, we optimize the parameters
             %              	required, if false, we use the parameters
             %           	from the get_config file
@@ -340,24 +362,6 @@ classdef PoseGraphOptimization
             % measurements with [0,0,0]^T as starting point
             X = PoseGraphOptimization.generatePoses(xi,[0;0;0]);
             
-            % Define information gain matrices
-            Omega = cell(N+M,1);
-            % Get information gain for the odometry measurements
-            out = get_config('odometryModelNoise');
-            for i=1:1:N         % Odometric constraints
-                deltaT = norm(xi_lc(1:2,i));
-                deltaR = abs(xi_lc(3,i));
-                sigma(1) = abs(cos(X(3,i)) * (out.a(3)*deltaT + out.a(4)*deltaR));
-                sigma(2) = abs(sin(X(3,i)) * (out.a(3)*deltaT + out.a(4)*deltaR));
-                sigma(3) = (out.a(1)*deltaR + out.a(2)*deltaT);
-                for j=1:1:3     % Avoid singularities
-                    if sigma(j) < 10^(-3)
-                        sigma(j) = 10^(-3);
-                    end
-                end
-                Omega{i} = diag(sigma)^(-1);
-            end
-            
             % Decide wether we optimize mapping parameter
             if ~optimize
                 % Optimize the path data
@@ -384,15 +388,26 @@ classdef PoseGraphOptimization
                 % Optimize parameters using Bayesian Optimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
-                thetaOpt = [gamma1,gamma2];
+                alpha1 = optimizableVariable('alpha1',[0.001,1],'Transform','log');
+                alpha2 = optimizableVariable('alpha2',[0.001,1],'Transform','log');
+                alpha3 = optimizableVariable('alpha3',[0.001,1],'Transform','log');
+                alpha4 = optimizableVariable('alpha4',[0.001,1],'Transform','log');
+                thetaOpt = [gamma1,gamma2,alpha1,alpha2,alpha3,alpha4];
                 results = bayesopt(@PGOCost,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
                 [X_opt] = getOptimizedPath(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;
-                disp(['Optimized Parameters:' newline 'gamma1: ' num2str(optimParam.gamma1) newline 'gamma2: ' num2str(optimParam.gamma2)])
+                disp(['Optimized Parameters:' newline ...
+                    'gamma1: ' num2str(optimParam.gamma1) newline ...
+                    'gamma2: ' num2str(optimParam.gamma2) newline ...
+                    'alpha1: ' num2str(optimParam.alpha1) newline ...
+                    'alpha2: ' num2str(optimParam.alpha2) newline ...
+                    'alpha3: ' num2str(optimParam.alpha3) newline ...
+                    'alpha4: ' num2str(optimParam.alpha4) newline ...
+                    ])
             end
                  
-            function cost = PGOCost(theta)
+            function cost = PGOCost(theta)             
                 [X_tmp] = getOptimizedPath(theta);
                 % Go through all loop closures and calculate lengths
                 U = zeros(M,1);
@@ -411,6 +426,22 @@ classdef PoseGraphOptimization
             end
                   
             function [X_opt] = getOptimizedPath(theta)
+                % Define information gain matrices
+                Omega = cell(N+M,1);
+                % Get information gain for the odometry measurements
+                for ii=1:1:N         % Odometric constraints
+                    deltaT = norm(xi_lc(1:2,ii));
+                    deltaR = abs(xi_lc(3,ii));
+                    sigma(1) = abs(cos(X(3,ii)) * (theta.alpha3*deltaT + theta.alpha4*deltaR));
+                    sigma(2) = abs(sin(X(3,ii)) * (theta.alpha3*deltaT + theta.alpha4*deltaR));
+                    sigma(3) = (theta.alpha1*deltaR + theta.alpha2*deltaT);
+                    for jj=1:1:3     % Avoid singularities
+                        if sigma(jj) < 10^(-3)
+                            sigma(jj) = 10^(-3);
+                        end
+                    end
+                    Omega{ii} = diag(sigma)^(-1);
+                end
                 % Adjust loop closing constraints according to the given
                 % parameters
                 for ii=N+1:1:N+M   	% Loop closing constraints
