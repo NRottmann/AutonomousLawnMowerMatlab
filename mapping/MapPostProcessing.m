@@ -117,18 +117,61 @@ classdef MapPostProcessing
  %               [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1,Poly2,Comp,refpoint,10^(-3));
                 if mode == 4
                     % Get some different rotations
-                    phi = 0:1:180;
+                    phi = 0:1:360;
                     Poly1_tmp = cell(length(phi),1);
                     Comp_tmp = zeros(length(phi),1);
                     for ii=1:1:length(phi)
-                        Poly1_tmp{ii} = rotate(Poly1,phi(ii),refpoint);
+                        Poly1_tmp{ii} = rotate(Poly1,phi(ii));
                         Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(union(Poly1_tmp{ii},Poly2));
-                        % [Poly1_tmp{ii},Comp_tmp(ii)] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{ii},Poly2,Comp_tmp(ii),refpoint,optAcc);
+                        [Poly1_tmp{ii},Comp_tmp(ii)] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{ii},Poly2,Comp_tmp(ii),refpoint,0.001);
                     end
                     [~,idx] = min(Comp_tmp);
                     [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{idx},Poly2,Comp_tmp(idx),refpoint,optAcc);
                 end
-            end 
+            end
+            % Try genetic algorithms
+            if (mode == 5)
+                % Generate Polygons
+                Poly1 = polyshape(X1(1,:),X1(2,:),'Simplify',false);
+                Poly2 = polyshape(X2(1,:),X2(2,:),'Simplify',false);
+                % Start by adjusting both maps onto each other manually
+%                 [x_center_1,y_center_1] = centroid(Poly1);
+                [x_center_2,y_center_2] = centroid(Poly2);
+%                 dv = -[x_center_1 - x_center_2, y_center_1 - y_center_2];
+%                 Poly1 = translate(Poly1,dv(1),dv(2));
+                refpoint = [x_center_2, y_center_2];
+                % Use genetic algorithms to find a good first guess
+                trans = ga(@compCostMaps,3);
+                % Transform map to best guess
+                Poly1 = rotate(Poly1,trans(3),refpoint);
+                Poly1 = translate(Poly1,trans(1),trans(2));
+                compCost = area(xor(Poly1,Poly2))/area(union(Poly1,Poly2));
+                % Optimize with gradient descent
+                [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1,Poly2,compCost,refpoint,optAcc);
+            end
+            if (mode == 6)
+                % Generate Polygons
+                Poly1 = polyshape(X1(1,:),X1(2,:),'Simplify',false);
+                Poly2 = polyshape(X2(1,:),X2(2,:),'Simplify',false);
+                % Start by adjusting both maps onto each other manually
+                [x_center_1,y_center_1] = centroid(Poly1);
+                [x_center_2,y_center_2] = centroid(Poly2);
+                dv = -[x_center_1 - x_center_2, y_center_1 - y_center_2];
+                Poly1 = translate(Poly1,dv(1),dv(2));
+                refpoint = [x_center_2, y_center_2];
+                % Go through phis
+                phi = 0:0.1:360;
+                Poly1_tmp = cell(length(phi),1);
+                Comp_tmp = zeros(length(phi),1);
+                for ii=1:1:length(phi)
+                    Poly1_tmp{ii} = rotate(Poly1,phi(ii),refpoint);
+                    Comp_tmp(ii) = area(xor(Poly1_tmp{ii},Poly2))/area(union(Poly1_tmp{ii},Poly2));
+                end
+                [~,idx] = min(Comp_tmp);
+                [Poly1,Comp] = MapPostProcessing.gradientDescentComplete(Poly1_tmp{idx},Poly2,Comp_tmp(idx),refpoint,optAcc);
+            end
+            
+            
             X1 = [Poly1.Vertices' Poly1.Vertices(1,:)'];
 
             % Plot results
@@ -150,6 +193,15 @@ classdef MapPostProcessing
             results.error = Comp;
             
             disp('Comparison completed successfully!')
+            
+            % Cost function for comparison
+            function compCost = compCostMaps(dx)
+                Poly_tmp = Poly1;
+                Poly_tmp = rotate(Poly_tmp,dx(3),refpoint);
+                Poly_tmp = translate(Poly_tmp,dx(1),dx(2));
+                compCost = area(xor(Poly_tmp,Poly2))/area(union(Poly_tmp,Poly2));
+            end
+            
         end
         function [obj] = cutGraph(obj) 
             % This methods throws away the beginning and end of the graph
@@ -161,7 +213,7 @@ classdef MapPostProcessing
             %
             
             % Clear beginning and end
-            [~,idx1] = min(obj.A(:,length(obj.DP(1,:))+1));         % First loop closing constraint
+            [~,idx1] = min(obj.A(:,length(obj.DP(1,:))));           % First loop closing constraint
             [~,idx2] = max(obj.A(:,end));                           % Last loop closing constraint
             obj.CutDP = obj.DP(:,idx1:idx2);
             A_tmp = obj.A(idx1:idx2,:);

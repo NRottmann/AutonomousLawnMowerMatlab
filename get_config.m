@@ -17,7 +17,8 @@ switch caseString
         out.v_max = 0.3;
         out.w_max = 0.6;
     case 'Sensor'
-        out.posRight = [0.265; -0.09];    % The right sensor is used for the wall follower      
+        out.posRight = [0.265; 0.0];
+        % out.posRight = [0.265; -0.09];    % The right sensor is used for the wall follower      
         out.posLeft = [0.265; 0.09];
         out.noise = 0.1;        % Noise of the sensor, 0 means no noise, 1 means totally random
     case 'kinModelNoise'
@@ -30,15 +31,16 @@ switch caseString
         out.dL = 0.2144;
     case 'odometryModelNoise'
         % out.a = [0.0254, 0.0111, 0.0107, 0.0097];
-        % out.a = [0.0849, 0.0412, 0.0316, 0.0173];
-        out.a = [0.4, 0.4, 0.4, 0.4];
+        out.a = [0.0849, 0.0412, 0.0316, 0.0173];
+        % out.a = [0.4, 0.4, 0.4, 0.4];
     case 'system'
         out.dt = 0.05;
     case 'mapping'
         out.l_min = 0.05;
         out.e_max = 0.0005;
-        out.l_nh = 30;
-        out.c_min = 1.0;
+        out.l_nh = 50;
+        out.c_min = 0.0122;
+        out.phi_cycle = 1.7;
         out.M = 100;
         out.gamma1 = 1;
         out.gamma2 = 1;
@@ -51,7 +53,7 @@ switch caseString
         out.c_min = 1.0;
         out.c_diff = 0;
     case 'particleFilter'
-        out.n_P = 1000;                      % Number particles
+        out.n_P = 1000;                     % Number particles
         out.poseVariance = [0.5;0.5;0.5];   % Variance for distributing the particles around a initial pose estimate
         out.n_M = 20;                       % Measure 20 times before updating weights of the particle filter
         out.increaseNoise = 1;            	% Factor which increases the noise of the odometry model for the particles

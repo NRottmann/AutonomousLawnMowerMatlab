@@ -6,8 +6,13 @@ clear all
 close all
 clc
 
+%% Define number of iteration
+iter = 1;
+results = cell(iter,2);
+for i=1:iter
+
 %% Choose the map and starting pose
-map = 'map_6.mat';
+map = 'map_6.mat';  
 load(map);
 pose = [0; 0; 0];
 
@@ -22,7 +27,7 @@ startPose = 0;  % Choose a random start pose
 %% Get the path of the sensor
 % out = get_config('Sensor');
 % deltaSensor = out.posRight;
-%
+% 
 % sensorPath = zeros(size(path));
 % estSensorPath = zeros(size(estPath));
 % for i=1:1:size(path,2)
@@ -33,24 +38,32 @@ startPose = 0;  % Choose a random start pose
 %     phi = estPath(3,i);
 %     estSensorPath(1:2,i) = estPath(1:2,i) + [cos(phi) -sin(phi); sin(phi) cos(phi)] * deltaSensor;
 % end
-%
+% 
 % optimize.loopClosure = true;
 % optimize.mapping = false;
 % [controlUnit,mappingResults] = controlUnit.mapping(estSensorPath,optimize);
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = true;
-optimize.mapping = false;
+optimize.loopClosure = false;
+optimize.mapping = true;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Compare estimated map with groundtruth
-comparisonResults = controlUnit.compare(6);
+[~,comparisonResults] = controlUnit.compare(6);
+
+%% Clear the controlUnit
+clear controlUnit
+
+%% Allocate results
+results{i,1} = mappingResults;
+results{i,2} = comparisonResults;
+end
 
 %% Plots
-figure,
-plot(estPath(1,:),estPath(2,:))
-title('Estimated Path')
-
-figure;
-plot(mappingResults.estMap.x,mappingResults.estMap.y)
-title('Map Estimate')
+% figure,
+% plot(estPath(1,:),estPath(2,:))
+% title('Estimated Path')
+% 
+% figure;
+% plot(mappingResults.estMap.x,mappingResults.estMap.y)
+% title('Map Estimate')

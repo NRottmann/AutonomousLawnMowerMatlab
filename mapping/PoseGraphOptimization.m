@@ -5,17 +5,18 @@ classdef PoseGraphOptimization
     % Methods:
     %  	PoseGraphOptimization(pathData)
     %       This is tne constructot of the class
-    
+
     % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
     % 24.01.2018
-    
+
     properties
         PathData;       % Data retieved by driving with the vehicle along the boundary line
-        
+
         L_min;          % Parameter for data pruning
         E_max;
         L_nh;           % Parameter for correlation calculation
         C_min;
+        Phi_cycle;
         M;
         Gamma1;         % Parameter for PGO (Loop Closure)
         Gamma2;
@@ -23,10 +24,10 @@ classdef PoseGraphOptimization
         Alpha2;
         Alpha3;
         Alpha4;
-        
+
         BayRate;        % Bayesian Optimization Parameter
     end
-    
+
     methods
         function obj = PoseGraphOptimization()
             % This is the constructor of the class
@@ -37,18 +38,19 @@ classdef PoseGraphOptimization
             obj.E_max = out.e_max;
             obj.L_nh = out.l_nh;
             obj.C_min = out.c_min;
+            obj.Phi_cycle = out.phi_cycle;
             obj.M = out.M;
             obj.Gamma1 = out.gamma1;
             obj.Gamma2 = out.gamma2;
             obj.BayRate = out.bayRate;
-            
+
             out = get_config('odometryModelNoise');
             obj.Alpha1 = out.a(1);
             obj.Alpha2 = out.a(2);
             obj.Alpha3 = out.a(3);
             obj.Alpha4 = out.a(4);
         end
-        
+
         function [obj,X,A] = generateMap(obj,pathData,optimize)
             % This is the main function of the class which runs the mapping
             % algorithm and gives back an map estimate
@@ -67,36 +69,38 @@ classdef PoseGraphOptimization
             %   X:      Pose Graph
             %   A:      Incidence matrix
             %
-            
+
             % (0) Allocate path data
             % Check size, matrix has to be 2 x N
             if ~(length(pathData(:,1)) == 2)
                 error('PoseGraphOptimization: Size of path data incorrect, should be 2 x N!')
             end
             obj.PathData = pathData;
-            
+
             % (1) Data Pruning of the odometry data
             disp(['Prune ',num2str(length(obj.PathData(1,:))),' data points ...'])
             pruningParam.e_max = obj.E_max;
             pruningParam.l_min = obj.L_min;
             DP = generateDPs(obj.PathData,pruningParam);
             disp(['Data points number reduced to ',num2str(length(DP(1,:))),'!'])
-            
+
             % (2) Generate measurements from the pruned data set
             disp(['Generate measurement data from ',num2str(length(DP(1,:))),' dominant points ...'])
             xi = PoseGraphOptimization.generateMeasurements(DP);
             disp('Generated measurement data!')
-            
+
             % (3) Find pairs of DPs for Loop Closure
             disp('Search for loop closures ...')
             correlationParam.l_nh = obj.L_nh;
             correlationParam.c_min = obj.C_min;
+            correlationParam.phi_cycle = obj.Phi_cycle;
             correlationParam.m = obj.M;
-            [SP,corr,L,optimParam] = PoseGraphOptimization.generateSPs(DP,correlationParam,optimize.loopClosure);
+            [SP,corr,L,Phi,optimParam] = PoseGraphOptimization.generateSPs(DP,correlationParam,optimize.loopClosure);
             obj.L_nh = optimParam.l_nh;
             obj.C_min = optimParam.c_min;
+            obj.Phi_cycle = optimParam.phi_cycle;
             disp(['Found ',num2str((sum(sum(SP))-length(SP(1,:)))),' loop closures!'])
-            
+
             % (4) PGO
             disp('Optimize the pose graph ...')
             optParam.gamma1 = obj.Gamma1;
@@ -113,13 +117,13 @@ classdef PoseGraphOptimization
             obj.Alpha3 = optimParam.alpha3;
             obj.Alpha4 = optimParam.alpha4;
             disp('Pose graph optimization completed successfully!')
-        end       
+        end
     end
-    
-    methods (Static)   
+
+    methods (Static)
         function xi = generateMeasurements(data)
             % Function to generate the measurement data from a pruned data
-            % set of positions. Therefore we define the orientation of 
+            % set of positions. Therefore we define the orientation of
             % node_i as the orientation of the vector from node_i to node
             % node_i+1
             %
@@ -128,9 +132,9 @@ classdef PoseGraphOptimization
             %   x M matrix
             % output:
             %   xi:     relative poses
-                    
+
             M = length(data(1,:));
-            
+
             % Here we create relative measurements for the Pose Graph
             % formulation
             theta = zeros(1,M-1);
@@ -149,10 +153,10 @@ classdef PoseGraphOptimization
                     xi(3,i-1) = xi(3,i-1) - 2*pi;
                 elseif xi(3,i-1) < -pi
                     xi(3,i-1) = xi(3,i-1) + 2*pi;
-                end              
+                end
             end
         end
-        
+
          function X = generatePoses(xi,x0)
             % Function to generate the poses from the given measurements of
             % the odometry
@@ -171,15 +175,15 @@ classdef PoseGraphOptimization
                                 sin(X(3,i)), cos(X(3,i))];
                 X(1:2,i+1) = X(1:2,i) + R*xi(1:2,i);
                 X(3,i+1) = X(3,i) + xi(3,i);
-            end   
+            end
         end
-        
-        function [SP,corr,L,optimParam] = generateSPs(data,param,optimize)
+
+        function [SP,corr,L,Phi,optimParam] = generateSPs(data,param,optimize)
             % Calculate the similar points in regard to the given data set
             % and the given parameters
-            % 
+            %
             % input:
-            %   data:           Data set with positions as matrix 2 x N, 
+            %   data:           Data set with positions as matrix 2 x N,
             %                   e.g. DPs
             %   param:          Parameter required for the algorithm
             %       m:          Number of points for evaluation
@@ -191,7 +195,7 @@ classdef PoseGraphOptimization
             % output:
             %   SP:             Incident matrix with similar points
             %
-            
+
             % Get length and orientations
             M = length(data(1,:));               % Number of data points
             phi = zeros(M,1);
@@ -202,7 +206,7 @@ classdef PoseGraphOptimization
                 phi(i-1) = phi_tmp;                         % Orientation of line segments
                 l(i-1) = norm(data(:,i) - data(:,i-1));   	% Length of line segments
             end
-            
+
             % Accumulate Orientations
             phi_cumulated = zeros(M,1);
             l_cumulated = zeros(M,1);
@@ -216,47 +220,64 @@ classdef PoseGraphOptimization
                     delta_phi = delta_phi - 2*pi;
                   end
                 end
-              phi_cumulated(i) = phi_cumulated(i-1) + delta_phi;  
+              phi_cumulated(i) = phi_cumulated(i-1) + delta_phi;
               l_cumulated(i) = l_cumulated(i-1) + l(i);
             end
-            
+
             % Decide wether a parameter optimization is required or not
             if ~optimize
                 % Calculate similar points
-                [SP,L,corr] = calculateSP(param);
+                [SP,L,Phi,corr] = calculateSP(param);
                 optimParam = param;
             else
                 % Bayes Optimization
                 disp('Optimize parameters for loop closure detection ...')
-                l_nh = optimizableVariable('l_nh',[1,l_cumulated(end)/4]);
+                l_nh = optimizableVariable('l_nh',[1,50]);
                 c_min = optimizableVariable('c_min',[0.01,10],'Transform','log');
-                thetaOpt = [l_nh,c_min];
+                phi_cycle = optimizableVariable('phi_cycle',[pi/2,pi]);
+                thetaOpt = [l_nh,c_min,phi_cycle];
                 results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
-                [SP,L,corr] = calculateSP(results.XAtMinObjective);
+                [SP,L,Phi,corr] = calculateSP(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;
                 disp(['Optimized Parameters:' newline 'l_nh:  ' num2str(optimParam.l_nh) newline 'c_min: ' num2str(optimParam.c_min)])
             end
-            
+
             % Define cost function for Bayesian Optimization
             function cost = loopClosureCost(theta)
-                [~,U,~] = calculateSP(theta);
-                cost = inf;
-                for ll = 1:1:round(length(U)/10)
-                    GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
-%                     newcost = GMModel.NegativeLogLikelihood + (1000/length(U));
-                    newcost = GMModel.NegativeLogLikelihood/length(U);
-                    diff = cost - newcost;
-                    if diff < 1
-                        break;
-                    else
-                        cost = newcost;
+                % Get loop closing pairs
+                [~,U,U_phi,~] = calculateSP(theta);
+                % Calculate costs based on path distances
+                cost_U = inf;
+                if (size(U,1) > size(U,2))
+                    for ll = 1:1:length(U)-1
+                        GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
+                        newcost = GMModel.NegativeLogLikelihood/length(U);
+                        diff = cost_U - newcost;
+                        if diff < 1
+                            break;
+                        else
+                            cost_U = newcost;
+                        end
                     end
                 end
+                % Calculate cost based on angles
+                cost_U_phi = inf;
+                if size(U_phi,1) > size(U_phi,2)
+                    if (ll >= 2)
+                        k_GM = ll-1;
+                    else
+                        k_GM = 1;
+                    end
+                    GMModel_phi = fitgmdist(U_phi,k_GM,'RegularizationValue',0.1);
+                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/length(U_phi);
+                end
+                % Add costs together
+                cost = cost_U + cost_U_phi;
             end
-            
-            % This function generates the loop closing pairs (SP)
-            function [SP,L,corr] = calculateSP(theta)
+
+            % This function generates the loop clsoing pairs (SP)
+            function [SP,L,Phi,corr] = calculateSP(theta)
                 % (1) Calculate correlation error
                 corr = zeros(M);
                 l_evaluation = linspace(-theta.l_nh,theta.l_nh,param.m);
@@ -274,13 +295,14 @@ classdef PoseGraphOptimization
                         corr(ii,jj) = corr(ii,jj) / param.m;
                     end
                 end
-                
+
                 % (2) Decide which pairs of poses are loop closing pairs
                 % dependend on the correlation error
                 l_min = theta.l_nh;                         % Minimum Length
                 l_max = l_cumulated(end) - theta.l_nh;      % Maximum Length
                 SP = zeros(M);
                 L = zeros(M*M,1);                           % length between the loop closing points
+                Phi = zeros(M*M,1);                         % angle between loop closing poses
                 ll = 0;                                     % counter for the loop closing lengths
                 for ii=1:1:M
                     if l_cumulated(ii) > l_min && l_cumulated(ii) < l_max
@@ -289,30 +311,36 @@ classdef PoseGraphOptimization
                         SP(ii,locs) = 1;
                         for jj=1:1:length(locs)
                             L_new = abs(l_cumulated(ii) - l_cumulated(locs(jj)));
-                            if L_new > 1    % Avoid loop closings to near to each other
+                            Phi_new = abs(phi_cumulated(ii) - phi_cumulated(locs(jj)));
+                            % Solve cycling recurrent structures and void loop closings to near to each other
+                            if (abs(pi-rem(Phi_new,(2*pi))) > theta.phi_cycle) && (L_new > 1)
                                 ll = ll + 1;
                                 L(ll) = L_new;
+                                Phi(ll) = Phi_new;
+                            else
+                                SP(ii,locs(jj)) = 0;
                             end
                         end
                     end
                 end
                 % Shrink the array
                 L = L(1:ll);
+                Phi = Phi(1:ll);
             end
         end
-        
+
         function [X_opt,A,optimParam] = tutorialPGO(xi,SP,corr,L,param,optimize)
             % Optimizes the pose graph using the method presented in (1)
             %
             % (1) A tutorial on graph-based SLAM
-            % 
+            %
             % input:
             %   xi:         measurements from the odometry (the orientations are
             %               already regulized)
             %   SP:         Matrix which contains informations about loop closures
             %   corr:       Correlation matrix according to the SPs
             %   L:          The distances betwee loop closing pairs
-            %   param:      Parameter for PGO 
+            %   param:      Parameter for PGO
             %       gamma1: Parameter for the Loop Closing variance
             %       gamma2: ...
             %       alpha1: Parameter for the odometry variance
@@ -322,22 +350,22 @@ classdef PoseGraphOptimization
             %   optimize:   If true, we optimize the parameters
             %              	required, if false, we use the parameters
             %           	from the get_config file
-            %   
+            %
             % output:
-            %   X:   	Estimation of new pose graph nodes   
+            %   X:   	Estimation of new pose graph nodes
             %   A:      Incidence Matrix
-            
+
             % check sizes
             if (length(xi(1,:)) + 2) ~= length(SP(1,:))
                 error('Sizes between xi and SP are not correct!')
             end
-            
-            % Generate the reduced incidence matrix for the odometry 
+
+            % Generate the reduced incidence matrix for the odometry
             % measurements (without the starting point)
             N = length(xi(1,:));
             A = diag(-1*ones(N,1)) + diag(ones(N-1,1),-1);
             A = [A; [zeros(1,N-1), 1]];
-            
+
             % Add loop closure constraints
             C = [];
             for i=1:1:(N+1)
@@ -352,16 +380,16 @@ classdef PoseGraphOptimization
                     end
                 end
             end
-            
+
             % Add measurements for the loop closure. Here we assume that
             % the difference in distance and orientation are zero
             M = length(A(1,:)) - N;
             xi_lc = [xi, zeros(3,M)];
-            
+
             % Generate initial guess of the poses using the odometry
             % measurements with [0,0,0]^T as starting point
             X = PoseGraphOptimization.generatePoses(xi,[0;0;0]);
-            
+
             % Decide wether we optimize mapping parameter
             if ~optimize
                 % Optimize the path data
@@ -372,7 +400,7 @@ classdef PoseGraphOptimization
                 % Calculate the circumference
                 logLikelihood = inf;
                 GMModelOld = [];
-                for ll = 1:1:round(length(L)/10)
+                for ll = 1:1:length(L)-1
                     GMModel = fitgmdist(L,ll,'RegularizationValue',0.1);
                     diff = logLikelihood - GMModel.NegativeLogLikelihood;
                     if diff < 1
@@ -384,7 +412,7 @@ classdef PoseGraphOptimization
                 end
                 Circumference = min(GMModelOld.mu);
                 Cluster = GMModelOld.NumComponents;
-                
+
                 % Optimize parameters using Bayesian Optimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
@@ -406,8 +434,8 @@ classdef PoseGraphOptimization
                     'alpha4: ' num2str(optimParam.alpha4) newline ...
                     ])
             end
-                 
-            function cost = PGOCost(theta)             
+
+            function cost = PGOCost(theta)
                 [X_tmp] = getOptimizedPath(theta);
                 % Go through all loop closures and calculate lengths
                 U = zeros(M,1);
@@ -419,12 +447,19 @@ classdef PoseGraphOptimization
                     end
                 end
                 % Use mixture Models to get estimated circumference
-                GMModel_tmp = fitgmdist(U,Cluster,'RegularizationValue',0.1);
-                U_mean = min(GMModel_tmp.mu);
+                if length(U) > 1
+                    GMModel_tmp = fitgmdist(U,Cluster,'RegularizationValue',0.1);
+                    U_mean = min(GMModel_tmp.mu);
+                elseif length(U) == 1
+                    U_mean = U;
+                else
+                    error('Wrong size of U!')
+                end
+
                 % Calculate cost
                 cost = abs(Circumference - U_mean);
             end
-                  
+
             function [X_opt] = getOptimizedPath(theta)
                 % Define information gain matrices
                 Omega = cell(N+M,1);
@@ -481,11 +516,11 @@ classdef PoseGraphOptimization
                         dX(:,ii) = dX_tmp(((ii*3)-2):(ii*3));
                     end
                     X = X + dX;
-                end 
+                end
                 X_opt = X;
             end
         end
-             
+
         function [A,B] = jacobianTutorial(z,xi,xj)
             % Calculates the Jacobian A and B
             %
@@ -497,9 +532,9 @@ classdef PoseGraphOptimization
             % output:
             %   A,B:    Jacobians
             %
-            
+
             dx = 10^(-9);
-            
+
             e = PoseGraphOptimization.errorTutorial(z,xi,xj);
             A = zeros(3);
             B = zeros(3);
@@ -510,7 +545,7 @@ classdef PoseGraphOptimization
                 B(:,i) = ((PoseGraphOptimization.errorTutorial(z,xi,xj_tmp)) - e) / dx;
             end
         end
-        
+
         function e = errorTutorial(z,xi,xj)
             % Calculates the error measurements between the relative pose
             % measurement z and the current point xi and xj
@@ -526,27 +561,26 @@ classdef PoseGraphOptimization
             end
             e = z - z_star;
         end
-        
+
         function R = rotationMatrix(A,theta)
             % Generates a rotation matrix required for the LAGO algorithm
-            % 
+            %
             % input:
             %   A:      Reduced incidence matrix
             %   theta:  Angles theta
-            %   
+            %
             % output:
             %   R:      Rotation matrix
-            %   
-            
+            %
+
             NM = length(A(1,:));
             R = zeros(2*NM);
             for i=1:1:NM
                 [~,idx] = min(A(:,i));
                 R_tmp = [cos(theta(idx)), -sin(theta(idx)); ...
                                 sin(theta(idx)), cos(theta(idx))];
-                R((2*i-1):(2*i),(2*i-1):(2*i)) = R_tmp; 
+                R((2*i-1):(2*i),(2*i-1):(2*i)) = R_tmp;
             end
         end
     end
 end
-
