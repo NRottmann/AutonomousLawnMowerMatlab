@@ -99,7 +99,7 @@ classdef PoseGraphOptimization
             obj.L_nh = optimParam.l_nh;
             obj.C_min = optimParam.c_min;
             obj.Phi_cycle = optimParam.phi_cycle;
-            disp(['Found ',num2str((sum(sum(SP))-length(SP(1,:)))),' loop closures!'])
+            disp(['Found ',num2str(length(L)),' loop closures!'])
 
             % (4) PGO
             disp('Optimize the pose graph ...')
@@ -240,7 +240,7 @@ classdef PoseGraphOptimization
                 % Calculate optimized similar points
                 [SP,L,Phi,corr] = calculateSP(results.XAtMinObjective);
                 optimParam = results.XAtMinObjective;
-                disp(['Optimized Parameters:' newline 'l_nh:  ' num2str(optimParam.l_nh) newline 'c_min: ' num2str(optimParam.c_min)])
+                disp(['Optimized Parameters:' newline 'l_nh:  ' num2str(optimParam.l_nh) newline 'c_min: ' num2str(optimParam.c_min) newline 'phi_cycle: ' num2str(optimParam.phi_cycle)])
             end
 
             % Define cost function for Bayesian Optimization
@@ -252,7 +252,8 @@ classdef PoseGraphOptimization
                 if (size(U,1) > size(U,2))
                     for ll = 1:1:length(U)-1
                         GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
-                        newcost = GMModel.NegativeLogLikelihood/length(U);
+                        newcost = GMModel.NegativeLogLikelihood/(length(U));
+                        % newcost = GMModel.NegativeLogLikelihood;
                         diff = cost_U - newcost;
                         if diff < 1
                             break;
@@ -270,10 +271,11 @@ classdef PoseGraphOptimization
                         k_GM = 1;
                     end
                     GMModel_phi = fitgmdist(U_phi,k_GM,'RegularizationValue',0.1);
-                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/length(U_phi);
+                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/(length(U_phi));
+                    % cost_U_phi = GMModel_phi.NegativeLogLikelihood;
                 end
                 % Add costs together
-                cost = cost_U + cost_U_phi;
+                cost = cost_U + cost_U_phi;%  - log(length(U));
             end
 
             % This function generates the loop clsoing pairs (SP)

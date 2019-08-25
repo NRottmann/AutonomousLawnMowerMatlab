@@ -8,9 +8,9 @@ clear all;
 clc;
 
 %% Load rosbag data and extract odometry data
-bag = rosbag('Garden02.bag');
-start = bag.StartTime + 100;
-stop = bag.EndTime - 120;
+bag = rosbag('Garden04.bag');
+start = bag.StartTime;
+stop = bag.EndTime;
 bagselectOdometry = select(bag, 'Time', [start stop], 'Topic', '/odometryData');
 odometry = timeseries(bagselectOdometry, 'LR', 'LL','RawR', 'RawL');
 msg_odometry = readMessages(bagselectOdometry);
@@ -64,4 +64,4 @@ for i=1:1:l_odometry
 end
 
 %% Store odometry data
-save('Garden02.mat','pose');
+save('Garden04.mat','pose');
