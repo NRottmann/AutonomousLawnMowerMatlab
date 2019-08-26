@@ -14,11 +14,15 @@ pose = [0.1; 0.1; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
-mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4)
-[controlUnit,coverageResults] = controlUnit.completeCoverage(1000, mode);
+mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
+particleMap = true;
+tic
+[controlUnit,coverageResults] = controlUnit.completeCoverage(250, mode, particleMap);
+t = toc
+coverageResults.time = t;
 coverageResults.polyMap = polyMap;
 
-% save('random7200.mat', 'coverageResults')
+% save('random90.mat', 'coverageResults')
 
 %% Plot some results
 figure()
@@ -60,3 +64,19 @@ if mode == 2 || mode == 4
     surf(coverageResults.externalInput');
     title('External Input');
 end
+figure()
+surf(coverageResults.coverageMap')
+grid on
+xlabel('x in Zellen')
+ylabel('y in Zellen')
+title('Abdeckungskarte')
+colorbar
+pbaspect([1 1 1])
+figure()
+surf(coverageResults.particleCoverageMap')
+grid on
+xlabel('x in Zellen')
+ylabel('y in Zellen')
+title('Abdeckungskarte')
+colorbar
+pbaspect([1 1 1])

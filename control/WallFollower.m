@@ -1,6 +1,6 @@
 classdef WallFollower
     % This is a control class for a wall follower which simply drives
-    % the vehicle along the boundary line, starting by first searching for 
+    % the vehicle along the boundary line, starting by first searching for
     % the boundary. The wall follower drives the vehicle counter clockwise
     % along the boundary line using only the sensor measurements of the
     % right sensor
@@ -26,7 +26,7 @@ classdef WallFollower
         M;
     end
     
-    methods    
+    methods
         function obj = WallFollower()
             % Constructor
             
@@ -47,47 +47,85 @@ classdef WallFollower
             obj.Vel = 0;
         end
         
-        function [obj,u] = wallFollowing(obj,sensorData)
+        function [obj,u] = wallFollowing(obj,sensorData,sensor)
             % Syntax:
             %       [u] = wallFollowing(sensorData)
             %
             % Input:
             %   sensorData:     Data of the grass sensor
+            %   sensor:         right sensor (0) or left sensor (1)
             %
             % Output:
             %   u:              Control inputs for kinematic model
-         
-            % count up
-            obj.Count = obj.Count + 1;
-
-            % Procede measurements
-            if sensorData.right
-                SRmeas = 1;
-            else
-                SRmeas = 0;
-            end
-
-            % Initialize control signals
-            u = zeros(2,1);
-
-            % Start finding the border line
-            if obj.Mode == 0
-                obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
-                if obj.Mean > 0.3
-                   u(1) = obj.Vmax;
+            
+            if sensor == 0
+                % count up
+                obj.Count = obj.Count + 1;
+                
+                % Procede measurements
+                if sensorData.right
+                    SRmeas = 1;
                 else
-                   obj.Mode = 1;
+                    SRmeas = 0;
                 end
-            end
-
-            % Do the wall following
-            if (obj.Mode == 1)
-                obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
-                d = (0.5 - obj.Mean) * 2.0;
-                var = cos(2 * pi * (obj.Count/obj.M));
-                u(2) = (d + var) * 0.5 * obj.Wmax;
-                obj.Vel = obj.A_v * obj.Vel + (1-obj.A_v) * (1 - abs(d));
-                u(1) = obj.Vel * obj.Vmax;
+                
+                % Initialize control signals
+                u = zeros(2,1);
+                
+                % Start finding the border line
+                if obj.Mode == 0
+                    obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
+                    if obj.Mean > 0.3
+                        u(1) = obj.Vmax;
+                    else
+                        obj.Mode = 1;
+                    end
+                end
+                
+                % Do the wall following
+                if (obj.Mode == 1)
+                    obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
+                    d = (0.5 - obj.Mean) * 2.0;
+                    var = cos(2 * pi * (obj.Count/obj.M));
+                    u(2) = (d + var) * 0.5 * obj.Wmax;
+                    obj.Vel = obj.A_v * obj.Vel + (1-obj.A_v) * (1 - abs(d));
+                    u(1) = obj.Vel * obj.Vmax;
+                end
+            elseif sensor == 1
+                % count up
+                obj.Count = obj.Count + 1;
+                
+                % Procede measurements
+                if sensorData.left
+                    SRmeas = 1;
+                else
+                    SRmeas = 0;
+                end
+                
+                % Initialize control signals
+                u = zeros(2,1);
+                
+                % Start finding the border line
+                if obj.Mode == 0
+                    obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
+                    if obj.Mean > 0.3
+                        u(1) = obj.Vmax;
+                    else
+                        obj.Mode = 1;
+                    end
+                end
+                
+                % Do the wall following
+                if (obj.Mode == 1)
+                    obj.Mean = obj.A_mu * obj.Mean + (1-obj.A_mu) * SRmeas;
+                    d = (0.5 - obj.Mean) * 2.0;
+                    var = cos(2 * pi * (obj.Count/obj.M));
+                    u(2) = -(d + var) * 0.5 * obj.Wmax;
+                    obj.Vel = obj.A_v * obj.Vel + (1-obj.A_v) * (1 - abs(d));
+                    u(1) = obj.Vel * obj.Vmax;
+                end
+            else
+                disp('Wrong Sensor!');
             end
         end
     end

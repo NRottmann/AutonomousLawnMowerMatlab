@@ -26,7 +26,7 @@ switch caseString
         out.a = [sqrt(0.0012),sqrt(0.001),sqrt(0.0057),sqrt(0.0032),sqrt(0.0035),sqrt(0.0046)];     % Standard deviation parameters
         % out.a = [0.1,0.1,0.1,0.1,0.1,0.1];
 %         out.a = [0.0,0.0,0.0,0.0,0.0,0.0];
-%         out.a = [0.01,0.01,0.01,0.01,0.01,0.01];
+%         out.a = [0.021,0.01,0.01,0.01,0.01,0.01];
     case 'mowerParameter'
         out.L = 0.1826;
         out.dR = 0.2147;
@@ -66,13 +66,13 @@ switch caseString
     case 'coverageMap'
         out.resolution = 5;                % Resolution in cells per meter
         out.threshhold = 0.9;
-        out.wallFollow = 0.5;
+        out.wallFollow = 0.4;
     case 'planning'
         out.a = 10;          % Passive decay rate
         out.b = 1;            % Upper bound
         out.d = 1;          % Lower bound
         out.e = 100;              % Maximum Gain, for gradient
-        out.c = 0;          % Control gain
+        out.c = 3;          % Control gain
         out.threshhold = 0.9;
         out.dt = 0.01;
         out.g = 2*pi+1;

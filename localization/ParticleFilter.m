@@ -148,7 +148,7 @@ classdef ParticleFilter
             end
         end
         
-        function [obj] = updateParticles(obj,sensorData,odometryData, relocating)
+        function [obj] = updateParticles(obj,sensorData,odometryData, relocating, particleMap, pose)
             % This methods updates the particles from the particle filter
             % based on the measurements (odometry, sensorData)P
             % Syntax:
@@ -172,7 +172,7 @@ classdef ParticleFilter
             for i = 1:1:obj.N_P
                 % Move Particle, add noise
                 obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
-                if ~relocating
+                if ~relocating && particleMap
                     idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
                     idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
                     if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
@@ -255,25 +255,20 @@ classdef ParticleFilter
                 for i=1:1:obj.N_P
                     for j=1:1:numSamples(i)
                         tempParticles(:,idx) = obj.Particles(:,i);
-                        if ~relocating
-                            tempCoverageMaps(idx, :, :) = obj.ParticleCoverageMaps(idx, :, :);
-                            idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                            idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-                            if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
-                                tempCoverageMaps(idx, idx_x, idx_y) = 1;
-                            end
+                        if ~relocating && particleMap
+                            tempCoverageMaps(idx, :, :) = squeeze(obj.ParticleCoverageMaps(idx, :, :));
                         end
                         idx = idx + 1;
                     end
                 end
                 % Allocate new Particles
                 obj.Particles = tempParticles;
-                if ~relocating
+                if ~relocating && particleMap
                     obj.ParticleCoverageMaps = tempCoverageMaps;
                 end
             end 
             
-            if ~relocating
+            if ~relocating && particleMap
                 obj.CoverageMap = zeros(obj.N,obj.M);
                 for i = 1:1:obj.N_P
                     obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));

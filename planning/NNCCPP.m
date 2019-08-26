@@ -107,8 +107,8 @@ classdef NNCCPP
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
             coverageMap_tmp(idx_x,idx_y) = 1;
-            coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
-            coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
+%             coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
+%             coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
             obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
             obj.ExternalInput(obj.ExternalInput < -obj.E) = -obj.E;
             
@@ -188,7 +188,7 @@ classdef NNCCPP
             % Allocate neural activity
             X = obj.NeuralActivity;
             X = X .* obj.Gradient;
-            surf(X')
+%             surf(X')
             
             % Get the index according to the position of the vehicle
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
@@ -199,23 +199,29 @@ classdef NNCCPP
             for i=-1:1:1
                 for j=-1:1:1
                     if ((i+idx_x>=1 && i+idx_x<=obj.N) && (j+idx_y>=1 && j+idx_y<=obj.M))   % Check if out of bounds
-                        if (X(idx_x,idx_y) <= X(idx_x+i,idx_y+j)) % && ~(i==0 && j==0)           % Do if value of cell is higher then initialPose and the cell is not the initial cell
+                        if (X(idx_x,idx_y) <= X(idx_x+i,idx_y+j)) && ~(i==0 && j==0)           % Do if value of cell is higher then initialPose and the cell is not the initial cell
                             ii = idx_x + i;
                             jj = idx_y + j;
-                            if pose(3) >= 0
-                                orientation = mod(pose(3), 2*pi);
-                                orientationDiff = abs(orientate(i,j) - orientation);
-                                dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
-                            else
-                                orientation = mod(pose(3), -2*pi);
-                                orientationDiff = abs(orientate(i,j) + orientation);
-                                dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+%                             if pose(3) >= 0
+%                                 orientation = mod(pose(3), 2*pi);
+%                                 orientationDiff = abs(orientate(i,j) - orientation);
+%                                 dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+%                             else
+%                                 orientation = mod(pose(3), -2*pi);
+%                                 orientationDiff = abs(orientate(i,j) + orientation);
+%                                 dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+%                             end
+                            orientation = mod(pose(3), 2*pi);
+                            orientationDiff = abs(orientation - orientate(i,j));
+                            if orientationDiff > pi
+                                orientationDiff = 2*pi - orientationDiff;
                             end
-                                if dec_tmp > dec
-                                    obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
-                                    obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
-                                    dec = dec_tmp;
-                                end
+                            dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+                            if dec_tmp > dec
+                                obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
+                                obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
+                                dec = dec_tmp;
+                            end
                         end
                     end
                 end

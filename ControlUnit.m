@@ -116,7 +116,7 @@ classdef ControlUnit
                 % Step 1: Get sensor measurements
                 sensorData = obj.ClassGrassSensor.measure(path(:,i));
                 % Step 2: Get control input
-                [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, 0); % right sensor
                 % Step 3: Move Robot and store positions
                 [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
                 % Step 4: Corrupt pose with noise
@@ -276,7 +276,7 @@ classdef ControlUnit
             end
         end
         
-        function [obj,results] = completeCoverage(obj,T,mode)
+        function [obj,results] = completeCoverage(obj,T,mode,particleMap)
             % This is the method is for complete coverage of the workspace
             % Syntax:
             %       [obj,results] = globalLocalization(obj)
@@ -318,14 +318,14 @@ classdef ControlUnit
                     % Step 4: Corrupt pose with noise
                     [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
                     % Step 5: Use Particle Filter
-                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, false, true);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
                     spread = obj.ClassParticleFilter.getParticleSpread()
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     % Coverage
                     mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
-                    tmp = obj.ClassParticleFilter.CoverageMap;
+                    tmp = groundTruth(path, obj.PolyMap, obj.Resolution);
                     tmp(mapAbs==0) = 0;
                     coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
                     coverages(i) = coverage;
@@ -354,13 +354,13 @@ classdef ControlUnit
                     % Step 4: Corrupt pose with noise
                     [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
                     % Step 5: Use Particle Filter
-                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, false, true);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     % Coverage
                     mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
-                    tmp = obj.ClassParticleFilter.CoverageMap;
+                    tmp = groundTruth(path, obj.PolyMap, obj.Resolution);
                     tmp(mapAbs==0) = 0;
                     coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
                     coverages(i) = coverage;
@@ -376,34 +376,58 @@ classdef ControlUnit
                 relocating = false;
                 spreads = zeros(I, 1);
                 coverages = zeros(I, 1);
+                figure()
+                plot(obj.PolyMap.x,obj.PolyMap.y)
+                hold on
                 for i=1:1:I
                     disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-                    idx_x = ceil((estPath(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                    idx_y = ceil((estPath(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-                    if (spread > obj.WallFollow) || (relocating && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) ~= 0) || (relocating && spread > obj.WallFollow/3)
+                    if spread > obj.WallFollow && ~relocating
                         relocating = true;
-                    else
-                        relocating = false;
+                        if coverage < 0.5
+                            half = false;
+                            if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
+                                sensor = 1;
+                            else
+                                sensor = 0;
+                            end
+                        else
+                            half = true;
+                            if ((mod(estPath(3,i), 2*pi) > (3*pi)/2 || mod(estPath(3,i), 2*pi) < pi/2))
+                                sensor = 0;
+                            else
+                                sensor = 1;
+                            end
+                        end
+                    end
+                    if (relocating && spread < obj.WallFollow/3)
+                        idx_x = ceil((estPath(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                        idx_y = ceil((estPath(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                        if ((~half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) ~= 0) || (half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) == 0))
+                            relocating = false;
+                            obj.ClassWallFollower = WallFollower();
+                        end
                     end
                     if relocating
-                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, sensor);
                         disp('relocating');
                     else
                         disp('netting');
-                        [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
-%                       [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                        if particleMap
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+                        else
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                        end
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
-                        obj.ClassWallFollower.Mode = 0;
                     end
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
                     % Step 4: Corrupt pose with noise
                     [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
                     % Step 5: Use Particle Filter
-                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating);
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating, particleMap);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
                     spread = obj.ClassParticleFilter.getParticleSpread();
                     spreads(i) = spread;
@@ -413,15 +437,21 @@ classdef ControlUnit
                     end
                     % Coverage
                     mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
-                    tmp = obj.ClassParticleFilter.CoverageMap;
+                    tmp = groundTruth(path, obj.PolyMap, obj.Resolution);
                     tmp(mapAbs==0) = 0;
                     coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
                     coverages(i) = coverage;
+                    plot(path(1,i),path(2,i),'.')
+                    xlim([-1,11])
+                    ylim([-1,11])
+                    hold on
+                    pause(0.000001);
                 end
                 figure()
                 plot(spreads);
                 figure()
                 plot(coverages);
+                results.spreads = spreads;
             elseif mode == 4
                 p = T;
                 if T >=1
@@ -434,32 +464,59 @@ classdef ControlUnit
                 obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
                 spread = 0;
                 relocating = false;
+                figure()
+                plot(obj.PolyMap.x,obj.PolyMap.y)
+                hold on
                 while coverage < p
                     i = i + 1;
                     disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
-                    if spread > obj.WallFollow
+                    if spread > obj.WallFollow && ~relocating
                         relocating = true;
+                        if coverage < 0.5
+                            half = false;
+                            if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
+                                sensor = 1;
+                            else
+                                sensor = 0;
+                            end
+                        else
+                            half = true;
+                            if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
+                                sensor = 0;
+                            else
+                                sensor = 1;
+                            end
+                        end
                     end
-                    if relocating && spread > obj.WallFollow/3
-                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData);
+                    if (relocating && spread < obj.WallFollow/3)
+                        idx_x = ceil((estPath(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                        idx_y = ceil((estPath(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                        if ((~half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) ~= 0) || (half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) == 0))
+                            relocating = false;
+                            obj.ClassWallFollower = WallFollower();
+                        end
+                    end
+                    if relocating
+                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, sensor);
                         disp('relocating');
                     else
                         disp('netting');
-                        relocating = false;
-                        [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
-%                       [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                        if particleMap
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
+                        else
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
+                        end
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
-                        obj.ClassWallFollower.Mode = 0;
                     end
                     % Step 3: Move Robot and store positions
                     [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
                     % Step 4: Corrupt pose with noise
                     [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
                     % Step 5: Use Particle Filter
-                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating);
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating, particleMap);
                     [estPath(:,i+1),~] = obj.ClassParticleFilter.getPoseEstimate();
                     spread = obj.ClassParticleFilter.getParticleSpread();
                     spreads(i) = spread;
@@ -469,15 +526,42 @@ classdef ControlUnit
                     end
                     % Coverage
                     mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
-                    tmp = obj.ClassParticleFilter.CoverageMap;
+                    tmp = groundTruth(path, obj.PolyMap, obj.Resolution);
                     tmp(mapAbs==0) = 0;
                     coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
                     coverages(i) = coverage;
+                    plot(path(1,i),path(2,i),'.')
+                    xlim([-1,11])
+                    ylim([-1,11])
+                    hold on
+                    pause(0.000001);
                 end
                 figure()
                 plot(spreads);
                 figure()
                 plot(coverages);
+                results.spreads = spreads;
+            elseif mode == 5
+                I = round(T/obj.Dt);
+                path = zeros(3,I+1);
+                estPath = zeros(3,I+1);
+                path(:,1) = obj.Pose;
+                obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
+                for i = 1:1:I
+                    disp(i*obj.Dt)
+                    % Step 1: Get sensor measurements
+                    sensorData = obj.ClassGrassSensor.measure(path(:,i));
+                    % Step 2: Get control input
+                    [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, 1);
+                    % Step 3: Move Robot and store positions
+                    [path(:,i+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,i), u, true);
+                    % Step 4: Corrupt pose with noise
+                    [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,i), motionData);
+                    estPath(:,i+1) = obj.ClassOdometryModel.odometryPose(estPath(:,i), true, 1);
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, false, particleMap, path(:,i+1));
+                end
+                obj.Pose = path(:,end);
+                obj.EstPose = estPath(:,end);
             else
                 error('Wrong mode chosen!')
             end
@@ -488,8 +572,7 @@ classdef ControlUnit
             results.neuralActivity = obj.ClassNNCCPP.NeuralActivity;
             results.externalInput = obj.ClassNNCCPP.ExternalInput;
             results.groundTruth = groundTruth(path, obj.PolyMap, obj.Resolution);
-            results.coverages = coverages;
-            results.spreads = spreads;
+%             results.coverages = coverages;
         end
     end    
 end

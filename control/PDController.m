@@ -110,12 +110,12 @@ classdef PDController
             end
             
             % Turn first, then drive straight
-            if abs(u2) > 0.1
+            if abs(u2) > 0.5
                 u1 = 0;
             end
             
             % Publish commands
-            u = [u1; u2]; 
+            u = [u1; u2]
         end
     end
 end
