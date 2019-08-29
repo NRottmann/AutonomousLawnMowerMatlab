@@ -40,7 +40,7 @@ startPose = 0;  % Choose a random start pose
 
 %% Generate map estimate from odometry data
 optimize.loopClosure = true;
-optimize.mapping = true;
+optimize.mapping = 1;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Compare estimated map with groundtruth

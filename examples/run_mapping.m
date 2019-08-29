@@ -6,7 +6,7 @@ close all
 clc
 
 %% Choose the data set and load the data, also the groundtruth map, if it exists
-data = 'garden04.mat';
+data = 'garden03.mat';
 load(data)                  % Load real data
 % load(['map_' data]);        % Load groundtruth map
 load('map_garden03.mat')
@@ -20,7 +20,7 @@ optimize.mapping = false;
 [controlUnit,mappingResults] = controlUnit.mapping(pose,optimize);
 
 %% Compare estimated map with groundtruth
-% comparisonResults = controlUnit.compare(4);
+comparisonResults = controlUnit.compare(6);
 
 %% Plot
 figure;

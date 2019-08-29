@@ -51,7 +51,7 @@ classdef PoseGraphOptimization
             obj.Alpha4 = out.a(4);
         end
 
-        function [obj,X,A] = generateMap(obj,pathData,optimize)
+        function [obj,X,A,Circumference] = generateMap(obj,pathData,optimize)
             % This is the main function of the class which runs the mapping
             % algorithm and gives back an map estimate
             %
@@ -109,7 +109,7 @@ classdef PoseGraphOptimization
             optParam.alpha2 = obj.Alpha2;
             optParam.alpha3 = obj.Alpha3;
             optParam.alpha4 = obj.Alpha4;
-            [X,A,optimParam] = PoseGraphOptimization.tutorialPGO(xi,SP,corr,L,optParam,optimize.mapping);
+            [X,A,Circumference,optimParam] = PoseGraphOptimization.tutorialPGO(xi,SP,corr,L,optParam,optimize.mapping);
             obj.Gamma1 = optimParam.gamma1;
             obj.Gamma2 = optimParam.gamma2;
             obj.Alpha1 = optimParam.alpha1;
@@ -252,8 +252,8 @@ classdef PoseGraphOptimization
                 if (size(U,1) > size(U,2))
                     for ll = 1:1:length(U)-1
                         GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
-                        newcost = GMModel.NegativeLogLikelihood/(length(U));
-                        % newcost = GMModel.NegativeLogLikelihood;
+                        % newcost = GMModel.NegativeLogLikelihood/(length(U));
+                        newcost = GMModel.NegativeLogLikelihood;
                         diff = cost_U - newcost;
                         if diff < 1
                             break;
@@ -271,11 +271,11 @@ classdef PoseGraphOptimization
                         k_GM = 1;
                     end
                     GMModel_phi = fitgmdist(U_phi,k_GM,'RegularizationValue',0.1);
-                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/(length(U_phi));
-                    % cost_U_phi = GMModel_phi.NegativeLogLikelihood;
+                    % cost_U_phi = GMModel_phi.NegativeLogLikelihood/(length(U_phi));
+                    cost_U_phi = GMModel_phi.NegativeLogLikelihood;
                 end
                 % Add costs together
-                cost = cost_U + cost_U_phi;%  - log(length(U));
+                cost = cost_U + cost_U_phi - log(length(U));
             end
 
             % This function generates the loop clsoing pairs (SP)
@@ -308,7 +308,10 @@ classdef PoseGraphOptimization
                 ll = 0;                                     % counter for the loop closing lengths
                 for ii=1:1:M
                     if l_cumulated(ii) > l_min && l_cumulated(ii) < l_max
-                        [pks, locs] = findpeaks(-corr(ii,:));
+                        % [pks, locs] = findpeaks(-corr(ii,:));
+                        [pks, locs] = findpeaks(-corr(ii,ii:end));
+                        locs = locs + (ii-1);
+                        
                         locs(abs(pks) > theta.c_min) = [];
                         SP(ii,locs) = 1;
                         for jj=1:1:length(locs)
@@ -331,7 +334,7 @@ classdef PoseGraphOptimization
             end
         end
 
-        function [X_opt,A,optimParam] = tutorialPGO(xi,SP,corr,L,param,optimize)
+        function [X_opt,A,Circumference,optimParam] = tutorialPGO(xi,SP,corr,L,param,optimize)
             % Optimizes the pose graph using the method presented in (1)
             %
             % (1) A tutorial on graph-based SLAM
@@ -391,30 +394,48 @@ classdef PoseGraphOptimization
             % Generate initial guess of the poses using the odometry
             % measurements with [0,0,0]^T as starting point
             X = PoseGraphOptimization.generatePoses(xi,[0;0;0]);
+            
+            % Calculate the circumference
+            logLikelihood = inf;
+            GMModelOld = [];
+            for ll = 1:1:length(L)-1
+                GMModel = fitgmdist(L,ll,'RegularizationValue',0.1);
+                diff = logLikelihood - GMModel.NegativeLogLikelihood;
+                if diff < 1
+                    break;
+                else
+                    logLikelihood = GMModel.NegativeLogLikelihood;
+                    GMModelOld = GMModel;
+                end
+            end
+            Circumference = min(GMModelOld.mu);
+            Cluster = GMModelOld.NumComponents;
 
             % Decide wether we optimize mapping parameter
-            if ~optimize
+            if (optimize == 0)
                 % Optimize the path data
                 [X_opt] = getOptimizedPath(param);
                 optimParam = param;
-            else
-                disp('Optimize parameters for pose graph optimization ...')
-                % Calculate the circumference
-                logLikelihood = inf;
-                GMModelOld = [];
-                for ll = 1:1:length(L)-1
-                    GMModel = fitgmdist(L,ll,'RegularizationValue',0.1);
-                    diff = logLikelihood - GMModel.NegativeLogLikelihood;
-                    if diff < 1
-                        break;
-                    else
-                        logLikelihood = GMModel.NegativeLogLikelihood;
-                        GMModelOld = GMModel;
-                    end
-                end
-                Circumference = min(GMModelOld.mu);
-                Cluster = GMModelOld.NumComponents;
-
+            elseif (optimize == 1)
+                disp('Optimize parameters for pose graph optimization (gamma values) ...')
+                % Optimize parameters using Bayesian Optimization
+                gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
+                gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
+                thetaOpt = [gamma1,gamma2];
+                results = bayesopt(@PGOCost_gamma,thetaOpt,'Verbose',1,'PlotFcn',{});
+                % Calculate optimized similar points
+                optimParam = results.XAtMinObjective;
+                optimParam.alpha1 = param.alpha1;
+                optimParam.alpha2 = param.alpha2;
+                optimParam.alpha3 = param.alpha3;
+                optimParam.alpha4 = param.alpha4;
+                [X_opt] = getOptimizedPath(optimParam);
+                disp(['Optimized Parameters:' newline ...
+                    'gamma1: ' num2str(optimParam.gamma1) newline ...
+                    'gamma2: ' num2str(optimParam.gamma2) newline ...
+                    ])
+            elseif (optimize == 2)
+                disp('Optimize parameters for pose graph optimization (gamma and alpha values) ...')
                 % Optimize parameters using Bayesian Optimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
@@ -435,8 +456,18 @@ classdef PoseGraphOptimization
                     'alpha3: ' num2str(optimParam.alpha3) newline ...
                     'alpha4: ' num2str(optimParam.alpha4) newline ...
                     ])
+            else
+                error('PGO_Tutorial: Wrong optimization value chosen!')
             end
-
+            
+            function cost = PGOCost_gamma(theta)
+                theta.alpha1 = param.alpha1;
+                theta.alpha2 = param.alpha2;
+                theta.alpha3 = param.alpha3;
+                theta.alpha4 = param.alpha4;
+                cost = PGOCost(theta);
+            end
+                
             function cost = PGOCost(theta)
                 [X_tmp] = getOptimizedPath(theta);
                 % Go through all loop closures and calculate lengths

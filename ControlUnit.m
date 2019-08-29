@@ -136,9 +136,10 @@ classdef ControlUnit
             %       polyMap:        The map estimate
             
             % Generate optimized path data
-            [obj.ClassPoseGraphOptimization,path,A] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize);
+            [obj.ClassPoseGraphOptimization,path,A,Circumference] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize);
             obj.ClassMapPostProcessing.DP = path(1:2,:);
             obj.ClassMapPostProcessing.A = A;
+            obj.ClassMapPostProcessing.Circumference = Circumference;
             % Cut ends
             obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.cutGraph();
             % Close graph
@@ -153,7 +154,19 @@ classdef ControlUnit
             results.cutDP = obj.ClassMapPostProcessing.CutDP;          
             results.closedDP = obj.ClassMapPostProcessing.ClosedDP;       
             results.A = obj.ClassMapPostProcessing.A;             
-            results.cutA = obj.ClassMapPostProcessing.CutA;          
+            results.cutA = obj.ClassMapPostProcessing.CutA;
+            results.param.gamma(1,1) = obj.ClassPoseGraphOptimization.Gamma1;
+            results.param.gamma(1,2) = obj.ClassPoseGraphOptimization.Gamma2;
+            results.param.alpha(1,1) = obj.ClassPoseGraphOptimization.Alpha1;
+            results.param.alpha(1,2) = obj.ClassPoseGraphOptimization.Alpha2;
+            results.param.alpha(1,3) = obj.ClassPoseGraphOptimization.Alpha3;
+            results.param.alpha(1,4) = obj.ClassPoseGraphOptimization.Alpha4;
+            results.param.l_min = obj.ClassPoseGraphOptimization.L_min;
+            results.param.e_max = obj.ClassPoseGraphOptimization.E_max;
+            results.param.l_nh = obj.ClassPoseGraphOptimization.L_nh;
+            results.param.c_min = obj.ClassPoseGraphOptimization.C_min;
+            results.param.phi_cycle = obj.ClassPoseGraphOptimization.Phi_cycle;
+            results.param.m = obj.ClassPoseGraphOptimization.M;
         end
 
         function [obj,results] = compare(obj,mode)

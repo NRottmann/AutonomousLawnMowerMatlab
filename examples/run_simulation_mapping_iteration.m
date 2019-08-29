@@ -7,7 +7,7 @@ close all
 clc
 
 %% Define number of iteration
-iter = 1;
+iter = 20;
 results = cell(iter,2);
 for i=1:iter
 
@@ -45,25 +45,34 @@ startPose = 0;  % Choose a random start pose
 
 %% Generate map estimate from odometry data
 optimize.loopClosure = false;
-optimize.mapping = true;
+optimize.mapping = 0;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Compare estimated map with groundtruth
 [~,comparisonResults] = controlUnit.compare(6);
 
-%% Clear the controlUnit
-clear controlUnit
-
 %% Allocate results
 results{i,1} = mappingResults;
 results{i,2} = comparisonResults;
+
+%% Clear the controlUnit
+clear controlUnit
 end
 
-%% Plots
-% figure,
-% plot(estPath(1,:),estPath(2,:))
-% title('Estimated Path')
-% 
-% figure;
-% plot(mappingResults.estMap.x,mappingResults.estMap.y)
-% title('Map Estimate')
+%% Evaluate Results
+compResult = zeros(iter,1);
+for i=1:iter
+    compResult(i) = results{i,2}.error;
+end
+mu = mean(compResult)
+sigma = std(compResult)
+
+%% Save
+% save('map_7_stdNoise.mat','results')
+
+%%
+% for i=1:6
+%     for j=1:2
+%         results{14+i,j} = result2{i,j};
+%     end
+% end

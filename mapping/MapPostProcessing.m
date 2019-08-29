@@ -17,6 +17,7 @@ classdef MapPostProcessing
         ClosedDP;       % Closed dominant points
         A;              % Incident matrix
         CutA;           % Incident matrix for cutted DPs
+        Circumference;  % Estimated Circumference
         
         % Parameter
         % Mapping
@@ -32,6 +33,8 @@ classdef MapPostProcessing
             % Allocate variables
             obj.DP = DP;   
             obj.A = A;
+            
+            obj.Circumference = 0;
             
             % Get parameter
             out = get_config('mapping');
@@ -213,8 +216,10 @@ classdef MapPostProcessing
             %
             
             % Clear beginning and end
-            [~,idx1] = min(obj.A(:,length(obj.DP(1,:))));           % First loop closing constraint
-            [~,idx2] = max(obj.A(:,end));                           % Last loop closing constraint
+            [~,idx11] = min(obj.A(:,length(obj.DP(1,:)):end)); 	% First loop closing constraint
+            idx1 = min(idx11);
+            [~,idx22] = max(obj.A(:,length(obj.DP(1,:)):end));	% Last loop closing constraint
+            idx2 = max(idx22);
             obj.CutDP = obj.DP(:,idx1:idx2);
             A_tmp = obj.A(idx1:idx2,:);
             A_tmp(:,idx2:length(obj.DP(1,:))-1) = [];
@@ -231,19 +236,33 @@ classdef MapPostProcessing
             
             J = length(obj.CutDP(1,:));
             j = 1;
-            while ~exist('X_closed') && j <= J
-                X_tmp = obj.CutDP(1:2,:) - obj.CutDP(1:2,j);
+            while ~exist('X_closed') && j <= (J-3)
+                X_tmp = obj.CutDP(1:2,j:end) - obj.CutDP(1:2,j);
                 S_tmp = zeros(length(X_tmp(1,:)),1);
                 for i=1:1:length(X_tmp(1,:))
                     S_tmp(i) = norm(X_tmp(:,i));
                 end
                 [pks, locs] = findpeaks(-S_tmp);
-                for i=1:1:length(pks)   % The first would be the starting position, thus neglect
-                    if abs(pks(i)) < 0.5
-                        X_closed = [obj.CutDP(:,1:locs(i)-1),obj.CutDP(:,1)];
-                        break
-                    end
+                [~,idx] = max(pks);
+%                 % Calculate circumferences for the peak locations
+%                 U_pks = zeros(length(pks),1);
+%                 for i=1:1:length(pks)
+%                     for ii=1:1:locs(i)-1
+%                         U_pks(i) = U_pks(i) + norm(obj.CutDP(1:2,j+ii)-obj.CutDP(1:2,j+(ii-1)));
+%                     end
+%                 end
+%                 [minU,idx] = min(abs(obj.Circumference - U_pks));
+                if (abs(pks(idx)) < 0.5)
+                    X_closed = [obj.CutDP(:,j:j+locs(idx)-2),obj.CutDP(:,j)];
+                    break
                 end
+                                       
+%                 for i=1:1:length(pks)   % The first would be the starting position, thus neglect
+%                     if abs(pks(i)) < 0.5
+%                         X_closed = [obj.CutDP(:,1:locs(i)-1),obj.CutDP(:,1)];
+%                         break
+%                     end
+%                 end
                 j = j + 1;
             end
             if ~exist('X_closed')
@@ -279,7 +298,11 @@ classdef MapPostProcessing
                 trans = - alpha * Delta_F;
                 for jj=1:1:3
                     if ~isfinite(trans(jj)) || ~isreal(trans(jj)) || isnan(trans(jj))
-                        trans(jj) = -10^(-6) * Delta_F;
+                        try 
+                            trans(jj) = -10^(-6) * Delta_F;
+                        catch
+                            break
+                        end
                     end
                 end
                 Poly1 = rotate(Poly1,trans(3),refpoint);

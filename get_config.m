@@ -38,9 +38,9 @@ switch caseString
     case 'mapping'
         out.l_min = 0.05;
         out.e_max = 0.001;
-        out.l_nh = 20;
-        out.c_min = 0.5;
-        out.phi_cycle = 1.7;
+        out.l_nh = 30;
+        out.c_min = 1.0;
+        out.phi_cycle = 1.5;
         out.M = 100;
         out.gamma1 = 1;
         out.gamma2 = 1;
