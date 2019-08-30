@@ -31,8 +31,8 @@ switch caseString
         out.dL = 0.2144;
     case 'odometryModelNoise'
         % out.a = [0.0254, 0.0111, 0.0107, 0.0097];
-        out.a = [0.0849, 0.0412, 0.0316, 0.0173];
-        % out.a = [0.4, 0.4, 0.4, 0.4];
+        % out.a = [0.0849, 0.0412, 0.0316, 0.0173];
+        out.a = [0.4, 0.4, 0.4, 0.4];
     case 'system'
         out.dt = 0.05;
     case 'mapping'

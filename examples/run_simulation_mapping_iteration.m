@@ -12,7 +12,7 @@ results = cell(iter,2);
 for i=1:iter
 
 %% Choose the map and starting pose
-map = 'map_6.mat';  
+map = 'map_5.mat';  
 load(map);
 pose = [0; 0; 0];
 
@@ -57,6 +57,8 @@ results{i,2} = comparisonResults;
 
 %% Clear the controlUnit
 clear controlUnit
+
+disp(i)
 end
 
 %% Evaluate Results

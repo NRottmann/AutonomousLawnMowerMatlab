@@ -232,8 +232,8 @@ classdef PoseGraphOptimization
             else
                 % Bayes Optimization
                 disp('Optimize parameters for loop closure detection ...')
-                l_nh = optimizableVariable('l_nh',[1,50]);
-                c_min = optimizableVariable('c_min',[0.01,10],'Transform','log');
+                l_nh = optimizableVariable('l_nh',[1,30]);
+                c_min = optimizableVariable('c_min',[0.01,1],'Transform','log');
                 phi_cycle = optimizableVariable('phi_cycle',[pi/2,pi]);
                 thetaOpt = [l_nh,c_min,phi_cycle];
                 results = bayesopt(@loopClosureCost,thetaOpt,'Verbose',1,'PlotFcn',{});
