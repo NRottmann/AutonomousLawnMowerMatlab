@@ -64,7 +64,7 @@ switch caseString
         out.n_S = 2;                      	% Number sensors used, (1 or 2)
         out.thresholdResampling = 0.9;   	% Resampling treshold  
     case 'coverageMap'
-        out.resolution = 5;                % Resolution in cells per meter
+        out.resolution = 10;                % Resolution in cells per meter
         out.threshhold = 0.9;
         out.wallFollow = 0.4;
     case 'planning'
@@ -75,7 +75,7 @@ switch caseString
         out.c = 3;          % Control gain
         out.threshhold = 0.9;
         out.dt = 0.01;
-        out.g = 2*pi+1;
+        out.g = 2*pi;
 end
 end
 

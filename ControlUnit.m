@@ -333,6 +333,9 @@ classdef ControlUnit
                 figure()
                 plot(coverages);
             elseif mode == 3
+                cov25 = false;
+                cov50 = false;
+                cov75 = false;
                 p = T;
                 if T >=1
                     p = 1;
@@ -364,6 +367,39 @@ classdef ControlUnit
                     tmp(mapAbs==0) = 0;
                     coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
                     coverages(i) = coverage;
+                    if ~cov25 && coverage > 0.25
+                        cov25 = true;
+                        results.path25 = path;
+                        results.estPath25 = estPath;
+                        results.coverageMap25 = obj.ClassCoverage.CoverageMap;
+                        results.particleCoverageMap25 = obj.ClassParticleFilter.CoverageMap;
+                        results.neuralActivity25 = obj.ClassNNCCPP.NeuralActivity;
+                        results.externalInput25 = obj.ClassNNCCPP.ExternalInput;
+                        results.groundTruth25 = groundTruth(path, obj.PolyMap, obj.Resolution);
+                        results.coverages25 = coverages;
+                    end
+                    if ~cov50 && coverage > 0.50
+                        cov50 = true;
+                        results.path50 = path;
+                        results.estPath50 = estPath;
+                        results.coverageMap50 = obj.ClassCoverage.CoverageMap;
+                        results.particleCoverageMap50 = obj.ClassParticleFilter.CoverageMap;
+                        results.neuralActivity50 = obj.ClassNNCCPP.NeuralActivity;
+                        results.externalInput50 = obj.ClassNNCCPP.ExternalInput;
+                        results.groundTruth50 = groundTruth(path, obj.PolyMap, obj.Resolution);
+                        results.coverages50 = coverages;
+                    end
+                    if ~cov75 && coverage > 0.50
+                        cov75 = true;
+                        results.path75 = path;
+                        results.estPath75 = estPath;
+                        results.coverageMap75 = obj.ClassCoverage.CoverageMap;
+                        results.particleCoverageMap75 = obj.ClassParticleFilter.CoverageMap;
+                        results.neuralActivity75 = obj.ClassNNCCPP.NeuralActivity;
+                        results.externalInput75 = obj.ClassNNCCPP.ExternalInput;
+                        results.groundTruth75 = groundTruth(path, obj.PolyMap, obj.Resolution);
+                        results.coverages75 = coverages;
+                    end
                 end
                 figure()
                 plot(coverages);
@@ -416,8 +452,10 @@ classdef ControlUnit
                     else
                         disp('netting');
                         if particleMap
+                            obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
                         else
+                            obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         end
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
@@ -505,8 +543,10 @@ classdef ControlUnit
                     else
                         disp('netting');
                         if particleMap
+                            obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
                         else
+                            obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         end
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
@@ -572,7 +612,7 @@ classdef ControlUnit
             results.neuralActivity = obj.ClassNNCCPP.NeuralActivity;
             results.externalInput = obj.ClassNNCCPP.ExternalInput;
             results.groundTruth = groundTruth(path, obj.PolyMap, obj.Resolution);
-%             results.coverages = coverages;
+            results.coverages = coverages;
         end
     end    
 end

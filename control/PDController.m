@@ -92,8 +92,10 @@ classdef PDController
 
             % Calculate error and pick shorter direction to turn to
             er = phi - phi_des;
-            if abs(er) > pi         % other direction is shorter
-                er = -er;
+            if er > pi         % other direction is shorter
+                er = -(2*pi-er);
+            elseif er < -pi
+                er = 2*pi+er;
             end
 
             % Control algorithm
@@ -110,12 +112,12 @@ classdef PDController
             end
             
             % Turn first, then drive straight
-            if abs(u2) > 0.5
+            if abs(u2) > 0.1
                 u1 = 0;
             end
             
             % Publish commands
-            u = [u1; u2]
+            u = [u1; u2];
         end
     end
 end

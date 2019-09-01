@@ -2,7 +2,7 @@ close all, clear all, clc;
 
 map = 'map_01.mat';  
 load(map);
-Resolution = 5;
+Resolution = 10;
 
 % Generate obstacle map, [N,M] Matrix initialized with zeros
 % when inside and ones when outside of a the environment

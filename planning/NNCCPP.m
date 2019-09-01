@@ -107,8 +107,8 @@ classdef NNCCPP
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
             coverageMap_tmp(idx_x,idx_y) = 1;
-%             coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
-%             coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
+            coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
+            coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
             obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
             obj.ExternalInput(obj.ExternalInput < -obj.E) = -obj.E;
             
