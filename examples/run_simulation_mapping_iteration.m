@@ -44,12 +44,17 @@ startPose = 0;  % Choose a random start pose
 % [controlUnit,mappingResults] = controlUnit.mapping(estSensorPath,optimize);
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = false;
+optimize.loopClosure = true;
 optimize.mapping = 0;
+try
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Compare estimated map with groundtruth
-[~,comparisonResults] = controlUnit.compare(6);
+    [~,comparisonResults] = controlUnit.compare(6);
+catch
+    mappingResults.test = inf;
+    comparisonResults.error = inf;
+end
 
 %% Allocate results
 results{i,1} = mappingResults;
@@ -62,12 +67,21 @@ disp(i)
 end
 
 %% Evaluate Results
+iter = 20;
 compResult = zeros(iter,1);
 for i=1:iter
     compResult(i) = results{i,2}.error;
 end
+idx = [];
+for i=1:iter
+    if isinf(compResult(i))
+        idx = [idx, i];
+    end
+end
+compResult(idx) = [];
 mu = mean(compResult)
 sigma = std(compResult)
+errors = length(idx)
 
 %% Save
 % save('map_7_stdNoise.mat','results')
@@ -78,3 +92,4 @@ sigma = std(compResult)
 %         results{14+i,j} = result2{i,j};
 %     end
 % end
+
