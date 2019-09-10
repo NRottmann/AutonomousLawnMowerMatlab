@@ -32,14 +32,14 @@ switch caseString
     case 'odometryModelNoise'
         % out.a = [0.0254, 0.0111, 0.0107, 0.0097];
         out.a = [0.0849, 0.0412, 0.0316, 0.0173];
-        % out.a = [0.1, 0.1, 0.1, 0.1];
+        % out.a = [0.4, 0.4, 0.4, 0.4];
     case 'system'
         out.dt = 0.05;
     case 'mapping'
         out.l_min = 0.05;
-        out.e_max = 0.001;
-        out.l_nh = 30;
-        out.c_min = 1.0;
+        out.e_max = 0.001; %0.001
+        out.l_nh = 44.6644; %30;
+        out.c_min = 0.50665; %1.0;
         out.phi_cycle = 1.5;
         out.M = 100;
         out.gamma1 = 1;

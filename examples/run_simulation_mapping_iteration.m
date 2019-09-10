@@ -44,7 +44,7 @@ startPose = 0;  % Choose a random start pose
 % [controlUnit,mappingResults] = controlUnit.mapping(estSensorPath,optimize);
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = false;
+optimize.loopClosure = true;
 optimize.mapping = 1;
 try
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);

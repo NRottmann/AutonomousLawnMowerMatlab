@@ -5,7 +5,8 @@ clear all
 close all
 clc
 
-load('Length01.mat');
+load('Length03.mat');
+L = U;
 
 K = 50;
 GMModels = cell(K,1);
@@ -23,25 +24,26 @@ height = 3.0;
 h1 = figure(1);
 set(h1, 'Units','centimeters','Position', [1 1 0.3*width height])
 k = 1:1:K;
-semilogy(k,Likelihood)
+plot(k,Likelihood)
 set(gca ,'FontSize' ,10) ;
 xlabel('K','Interpreter','latex')
 ylabel('$$\mathcal{L}$$','Interpreter','latex')
-axis([1 5 0 4000])
+axis([1 5 0 500])
 box off
 
 h2 = figure(2);
 set(h2, 'Units','centimeters','Position', [1 1 0.7*width height])
-x = 0:0.1:250;
+x = 0:0.1:200;
 y = pdf(GMModels{20},x');
-histogram(L,170,'normalization','pdf','EdgeAlpha',0.4,'FaceAlpha',0.4)
+% histogram(L,170,'normalization','pdf','EdgeAlpha',0.4,'FaceAlpha',0.4)
+histogram(L,100)
 hold on
-plot(x,y)
+%plot(x,y)
 set(gca ,'FontSize' ,10) ;
 xlabel('$$U$$ in meter','Interpreter','latex')
-ylabel('$$p(U)$$','Interpreter','latex')
-legend('Histogram','PDF')
+% ylabel('$$p(U)$$','Interpreter','latex')
+% legend('Histogram','PDF')
 % axis([80 220 0 1])   % Dataset 1
-axis([0 250 0 0.2]) % Dataset 2
+axis([0 170 0 70]) % Dataset 2
 box off
-legend('boxoff')   
+% legend('boxoff')   
