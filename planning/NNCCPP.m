@@ -17,6 +17,7 @@ classdef NNCCPP
         M;                  % Total number of cells y-dimension
         TargetPosition;     % Current target position
         Gradient;
+        Filter
         
         % Parameter
         Resolution;         % Resolution of coverage map
@@ -46,6 +47,8 @@ classdef NNCCPP
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
+            
+            obj.Filter = [sqrt(2) 1 sqrt(2); 1 0 1; sqrt(2) 1 sqrt(2)];
             
 %             out = get_config('system');
 %             obj.Dt = out.dt;
@@ -106,7 +109,9 @@ classdef NNCCPP
             coverageMap_tmp = coverageMap;
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-            coverageMap_tmp(idx_x,idx_y) = 1;
+            if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))
+                coverageMap_tmp(idx_x,idx_y) = 1;
+            end
             coverageMap_tmp(coverageMap_tmp >= obj.Threshhold) = 1;
             coverageMap_tmp(coverageMap_tmp < obj.Threshhold) = 0;
             obj.ExternalInput = obj.E.*(ones(obj.N,obj.M) - coverageMap_tmp) - 2*obj.E.*obj.ObstacleMap;
@@ -126,43 +131,23 @@ classdef NNCCPP
             X = obj.NeuralActivity;
             Xp = X;                         % positiv neural activity
             Xp(Xp < 0) = 0;
-            Xp_tmp = zeros(obj.N,obj.M);    % Generate weighted inhibitory inputs
-            
-            if obj.Parallel
-                n = obj.N;
-                m = obj.M;
-                x_tmp = zeros(n*m,1);
-                parfor ij=1:1:n*m
-                    j = ceil(ij/n);
-                    i = ij - (j-1)*n;
-                    for ii=-1:1:1
-                        for jj=-1:1:1
-                            iii = ii + i;
-                            jjj = jj + j;
-                            if ~(ii==0 && jj==0) && ((iii>=1 && iii<=n) && (jjj>=1 && jjj<=m))
-                                x_tmp(ij) = x_tmp(ij) + norm([ii; jj]) * Xp(iii,jjj);
-                            end
-                        end
-                    end
-                end
-                for j=1:1:m
-                    Xp_tmp(:,j) = x_tmp(1+(j-1)*n:j*n,1);
-                end
-            else
-                for i=1:1:obj.N
-                    for j=1:1:obj.M
-                        for ii=-1:1:1
-                            for jj=-1:1:1
-                                iii = ii + i;
-                                jjj = jj + j;
-                                if ~(ii==0 && jj==0) && ((iii>=1 && iii<=obj.N) && (jjj>=1 && jjj<=obj.M))
-                                    Xp_tmp(i,j) = Xp_tmp(i,j) + norm([ii; jj]) * Xp(iii,jjj);
-                                end
-                            end
-                        end
-                    end
-                end
-            end
+%             Xp_tmp = zeros(obj.N,obj.M);    % Generate weighted inhibitory inputs
+%             for i=1:1:obj.N
+%                 for j=1:1:obj.M
+%                     for ii=-1:1:1
+%                         for jj=-1:1:1
+%                             iii = ii + i;
+%                             jjj = jj + j;
+%                             if ~(ii==0 && jj==0) && ((iii>=1 && iii<=obj.N) && (jjj>=1 && jjj<=obj.M))
+%                                 Xp_tmp(i,j) = Xp_tmp(i,j) + norm([ii; jj]) * Xp(iii,jjj);
+%                             end
+%                         end
+%                     end
+%                 end
+%             end
+%             Xp = Xp_tmp;
+
+            Xp_tmp = imfilter(Xp, obj.Filter);
             Xp = Xp_tmp;
             
             I = obj.ExternalInput;
@@ -178,7 +163,7 @@ classdef NNCCPP
             obj.NeuralActivity = X + dX*obj.Dt;
         end
         
-    	function obj = planning(obj,pose)   
+    	function obj = planning(obj,pose)
             % Choose the position to go next
             %
             % Input:

@@ -148,7 +148,7 @@ classdef ParticleFilter
             end
         end
         
-        function [obj] = updateParticles(obj,sensorData,odometryData, relocating, particleMap, pose)
+        function obj = updateParticles(obj,sensorData,odometryData, relocating, particleMap, pose)
             % This methods updates the particles from the particle filter
             % based on the measurements (odometry, sensorData)P
             % Syntax:

@@ -26,7 +26,7 @@ classdef Coverage
             obj.Resolution = out.resolution;
             
             % Initialize Pose estimate
-            obj.Pose = [inf;inf;inf];
+            obj.Pose = [inf;inf];
         end
         
         function obj = initializeCoverageMap(obj,polyMap)
@@ -70,8 +70,9 @@ classdef Coverage
             % Input:
             %   particles:          Particles form the particle filter
             %   estPose:            Current pose estimate
-            if norm(estPose - obj.Pose) > 1/obj.Resolution
-                obj.Pose = estPose;
+            estimate = [ceil((estPose(1)-obj.PolyMap.XWorldLimits(1))*obj.Resolution);ceil((estPose(2)-obj.PolyMap.YWorldLimits(1))*obj.Resolution)];
+            if norm(estimate-obj.Pose) > 1/obj.Resolution
+                obj.Pose = estimate;
                 n = length(particles(1,:));
                 prob = zeros(obj.N,obj.M);
                 for i=1:1:n

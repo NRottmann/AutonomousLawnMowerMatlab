@@ -1,30 +1,28 @@
 % Example 04:
 % Simulate the robot mowing the lawn. Thereby we use a partcile filter for
 % pose estimation.
-for x = 2:1:10
-clear all\x
+clear all
 close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_01.mat';  
+map = 'map_05.mat';  
 load(map);
-pose = [0.1; 0.1; 0];
+pose = [0.05; 0.05; 0];
 
 %% Initialize the control unit
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
-mode = 3;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
-particleMap = true;
+mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
+particleMap = false;
     tic
-    [controlUnit,coverageResults] = controlUnit.completeCoverage(0.9, mode, particleMap);
+    [controlUnit,coverageResults] = controlUnit.completeCoverage(2000, mode, particleMap);
     t = toc
     coverageResults.time = t;
     coverageResults.polyMap = polyMap;
-    name = strcat('random_', num2str(x))
-    save(name, 'coverageResults')
-end
+%     name = strcat('random_', num2str(x))
+%     save(name, 'coverageResults')
 % save('random25.mat', 'coverageResults')
 
 %% Plot some results

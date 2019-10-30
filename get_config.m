@@ -65,15 +65,15 @@ switch caseString
         out.thresholdResampling = 0.9;   	% Resampling treshold  
     case 'coverageMap'
         out.resolution = 10;                % Resolution in cells per meter
-        out.threshhold = 0.9;
+        out.threshhold = 0.75;
         out.wallFollow = 0.4;
     case 'planning'
         out.a = 10;          % Passive decay rate
         out.b = 1;            % Upper bound
         out.d = 1;          % Lower bound
         out.e = 100;              % Maximum Gain, for gradient
-        out.c = 3;          % Control gain
-        out.threshhold = 0.9;
+        out.c = 3.5;          % Control gain
+        out.threshhold = 0.75;
         out.dt = 0.01;
         out.g = 2*pi;
 end

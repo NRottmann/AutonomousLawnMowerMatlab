@@ -83,7 +83,7 @@ classdef KinematicModel
             if noisy
                 v = v + sampleNormalDistribution(obj.A(1)*abs(v) + obj.A(2)*abs(w));
                 w = w + sampleNormalDistribution(obj.A(3)*abs(v) + obj.A(4)*abs(w));
-                g = sampleNormalDistribution(obj.A(5)*abs(v) + obj.A(6)*abs(w));
+                g = 0; %sampleNormalDistribution(obj.A(5)*abs(v) + obj.A(6)*abs(w));
             else
                 g = 0;
             end

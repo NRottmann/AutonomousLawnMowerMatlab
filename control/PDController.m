@@ -113,7 +113,7 @@ classdef PDController
             
             % Turn first, then drive straight
             if abs(u2) > 0.1
-                u1 = 0;
+                u1 = 0.01;
             end
             
             % Publish commands
