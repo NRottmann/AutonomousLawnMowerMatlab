@@ -58,8 +58,8 @@ end
 errorCoverage = sum(midErrorsCoverage)/10;
 errorParticle = sum(midErrorsParticle)/10;
 
-varsCoverage = var(midErrorsCoverage);
-varsParticle = var(midErrorsParticle);
+varsCoverage = std(midErrorsCoverage);
+varsParticle = std(midErrorsParticle);
 
 X = linspace(0,0.9,900);
 
@@ -72,8 +72,8 @@ xlabel('prozentuale Abdeckung')
 ylabel('mse')
 hold off
 
-YCoverage = [errorCoverage+10*varsCoverage; errorCoverage-10*varsCoverage];
-YParticle = [errorParticle+10*varsParticle; errorParticle-10*varsParticle];
+YCoverage = [errorCoverage+1*varsCoverage; errorCoverage-1*varsCoverage];
+YParticle = [errorParticle+1*varsParticle; errorParticle-1*varsParticle];
 
 figure()
 s = shadedErrorBar(X, YCoverage,{@mean,@std},'lineprops','-b','patchSaturation',0.2);
@@ -81,9 +81,10 @@ s.mainLine.LineWidth = 1;
 hold on
 s = shadedErrorBar(X, YParticle,{@mean,@std},'lineprops','-r','patchSaturation',0.2);
 s.mainLine.LineWidth = 1;
-legend('Mittelwert basierend', 'Partikel basierend', 'Location', 'northwest')
-xlabel('prozentuale Abdeckung')
-ylabel('mse')
+legend('Mittelwert basierend', 'Partikel basierend', 'Location', 'northwest', 'Interpreter','latex')
+legend('boxoff')
+xlabel('prozentuale Abdeckung', 'Interpreter','latex')
+ylabel('MSE', 'Interpreter','latex')
 hold off
 
 

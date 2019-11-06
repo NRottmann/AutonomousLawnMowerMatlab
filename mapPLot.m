@@ -1,6 +1,6 @@
 close all, clear all, clc;
 
-map = 'map_01.mat';  
+map = 'map_05.mat';  
 load(map);
 Resolution = 10;
 
@@ -26,19 +26,22 @@ end
 CoverageMap = zeros(N,M);
 
 figure()
-plot(polyMap.x,polyMap.y)
-xlim([-1 , 11])
-ylim([-1 , 11])
+plot(polyMap.x,polyMap.y, 'lineWidth', 2)
+% hold on
+% scatter(polyMap.x,polyMap.y, 'r', 'filled')
+% hold off
+xlim([-1 , 16])
+ylim([-3 , 11])
 grid on
-xlabel('x in Meter')
-ylabel('y in Meter')
-title('Karte')
-pbaspect([1 1 1])
+xlabel('x in Meter', 'Interpreter','latex')
+ylabel('y in Meter', 'Interpreter','latex')
+% title('Karte', 'Interpreter','latex')
+pbaspect([17 14 1])
 figure()
 surf(ObstacleMap')
 grid on
-xlabel('x in Zellen')
-ylabel('y in Zellen')
-title('Abdeckungsmatrix')
+xlabel('x in Zellen', 'Interpreter','latex')
+ylabel('y in Zellen', 'Interpreter','latex')
+title('Abdeckungsmatrix', 'Interpreter','latex')
 colorbar
 pbaspect([1 1 1])

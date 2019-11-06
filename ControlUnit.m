@@ -301,7 +301,7 @@ classdef ControlUnit
             mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
             N = round((obj.PolyMap.XWorldLimits(2) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
             M = round((obj.PolyMap.YWorldLimits(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
-            tmp = zeros(N, M);
+            ground = zeros(N, M);
             % Decide which mode
             if mode == 1
                 % Initialize
@@ -327,12 +327,12 @@ classdef ControlUnit
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     % Coverage
-                    v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
+                    v = ground(path(:,i), obj.PolyMap, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
-                    tmp(vx, vy) = 1;
-                    tmp(mapAbs==0) = 0;
-                    coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1);
+                    ground(vx, vy) = 1;
+                    ground(mapAbs==0) = 0;
+                    coverage = sum(ground>=obj.Threshhold)/sum(mapAbs==1);
                     disp(coverage);
                     coverages(i) = coverage;
                 end
@@ -371,13 +371,15 @@ classdef ControlUnit
                     v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
-                    tmp(vx, vy) = 1;
-                    tmp(mapAbs==0) = 0;
-                    coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1);
+                    if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))
+                        ground(vx, vy) = 1;
+                    end
+                    ground(mapAbs==0) = 0;
+                    coverage = sum(ground>=obj.Threshhold)/sum(mapAbs==1);
                     disp(coverage);
                     coverages(i) = coverage;
-                    part = immse(tmp, obj.ClassParticleFilter.CoverageMap);
-                    cov = immse(tmp, obj.ClassCoverage.CoverageMap);
+                    part = immse(ground, obj.ClassParticleFilter.CoverageMap);
+                    cov = immse(ground, obj.ClassCoverage.CoverageMap);
                     errors(1,i) = cov;
                     errors(2,i) = part;
                     if ~cov25 && coverage > 0.25
@@ -388,7 +390,7 @@ classdef ControlUnit
                         results.particleCoverageMap25 = obj.ClassParticleFilter.CoverageMap;
                         results.neuralActivity25 = obj.ClassNNCCPP.NeuralActivity;
                         results.externalInput25 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth25 = tmp;
+                        results.groundTruth25 = ground;
                         results.coverages25 = coverages;
                     end
                     if ~cov50 && coverage > 0.50
@@ -399,7 +401,7 @@ classdef ControlUnit
                         results.particleCoverageMap50 = obj.ClassParticleFilter.CoverageMap;
                         results.neuralActivity50 = obj.ClassNNCCPP.NeuralActivity;
                         results.externalInput50 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth50 = tmp;
+                        results.groundTruth50 = ground;
                         results.coverages50 = coverages;
                     end
                     if ~cov75 && coverage > 0.50
@@ -410,7 +412,7 @@ classdef ControlUnit
                         results.particleCoverageMap75 = obj.ClassParticleFilter.CoverageMap;
                         results.neuralActivity75 = obj.ClassNNCCPP.NeuralActivity;
                         results.externalInput75 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth75 = tmp;
+                        results.groundTruth75 = ground;
                         results.coverages75 = coverages;
                     end
                 end
@@ -425,7 +427,6 @@ classdef ControlUnit
                 relocating = false;
                 spreads = zeros(I, 1);
                 coverages = zeros(I, 1);
-                CM = zeros(N,M);
 %                 figure()
 %                 plot(obj.PolyMap.x,obj.PolyMap.y)
 %                 hold on
@@ -467,13 +468,13 @@ classdef ControlUnit
                         %                         disp('netting');
                         orientation = mod(estPath(3,i), 2*pi);
                         if (orientation > 7.5*pi/4 || orientation < 0.5*pi/4) || (orientation > 3.5*pi/4 && orientation < 4.5*pi/4)
-                            obj.ClassNNCCPP.C = 10;
+                            obj.ClassNNCCPP.C = 100;
                         else
-                            obj.ClassNNCCPP.C = 0.1;
+                            obj.ClassNNCCPP.C = 1.5;
                         end
                         if particleMap
 %                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
-                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),CM);
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         else
 %                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
@@ -494,18 +495,15 @@ classdef ControlUnit
                     if ~relocating
                         obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     end
-                    if sensorData.left == 0 && sensorData.right == 0
-                        CM = obj.ClassCoverage.CoverageMap;
-                    end
                     % Coverage
-                    v = groundTruth(estPath(:,i), obj.PolyMap, obj.Resolution);
+                    v = ground(path(:,i), obj.PolyMap, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
                     if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))
-                        tmp(vx, vy) = 1;
+                        ground(vx, vy) = 1;
                     end
-                    tmp(mapAbs==0) = 0;
-                    coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1);
+                    obj.ClassCoverage.CoverageMap(mapAbs==0) = 0;
+                    coverage = sum(obj.ClassCoverage.CoverageMap>=obj.Threshhold)/sum(mapAbs==1);
                     coverages(i) = coverage;
 %                     plot(path(1,i),path(2,i),'.')
 %                     xlim([-1,11])
@@ -530,7 +528,6 @@ classdef ControlUnit
                 obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
                 spread = 0;
                 relocating = false;
-                CM = zeros(N,M);
 %                 figure()
 %                 plot(obj.PolyMap.x,obj.PolyMap.y)
 %                 hold on
@@ -568,21 +565,21 @@ classdef ControlUnit
                     end
                     if relocating
                         [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, sensor);
-                        %                         disp('relocating');
+                                                disp('relocating');
                     else
                         %                         disp('netting');
                         orientation = mod(estPath(3,i), 2*pi);
                         if (orientation > 7.5*pi/4 || orientation < 0.5*pi/4) || (orientation > 3.5*pi/4 && orientation < 4.5*pi/4)
-                            obj.ClassNNCCPP.C = 10;
+                            obj.ClassNNCCPP.C = 100;
                         else
-                            obj.ClassNNCCPP.C = 0.1;
+                            obj.ClassNNCCPP.C = 1.5;
                         end
                         if particleMap
 %                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
                         else
 %                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
-                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),CM);
+                            [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         end
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     end
@@ -600,18 +597,15 @@ classdef ControlUnit
                     if ~relocating
                         obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     end
-                    if sensorData.left == 0 && sensorData.right == 0
-                        CM = obj.ClassCoverage.CoverageMap;
-                    end
                     % Coverage
-                    v = groundTruth(estPath(:,i), obj.PolyMap, obj.Resolution);
+                    v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
                     if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))
-                        tmp(vx, vy) = 1;
+                        ground(vx, vy) = 1;
                     end
-                    tmp(mapAbs==0) = 0;
-                    coverage = sum(tmp>=obj.Threshhold)/sum(mapAbs==1)
+                    obj.ClassCoverage.CoverageMap(mapAbs==0) = 0;
+                    coverage = sum(obj.ClassCoverage.CoverageMap>=obj.Threshhold)/sum(mapAbs==1)
                     %                     disp(coverage);
                     coverages(i) = coverage;
 %                     plot(path(1,i),path(2,i),'.')
@@ -655,7 +649,7 @@ classdef ControlUnit
             results.particleCoverageMap = obj.ClassParticleFilter.CoverageMap;
             results.neuralActivity = obj.ClassNNCCPP.NeuralActivity;
             results.externalInput = obj.ClassNNCCPP.ExternalInput;
-            results.groundTruth = tmp;
+            results.groundTruth = ground;
             results.coverages = coverages;
             %             results.errors = errors;
         end

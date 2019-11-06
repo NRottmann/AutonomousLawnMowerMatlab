@@ -16,8 +16,8 @@ h1 = figure(1);
 set(h1, 'Units','centimeters','Position', [1 1 0.33*width height])
 plot(map1.polyMap.x,map1.polyMap.y)
 set(gca ,'FontSize' ,10) ;
-% xlabel('K','Interpreter','latex')
-% ylabel('$$\mathcal{L}$$','Interpreter','latex')
+xlabel('K','Interpreter','latex')
+ylabel('$$\mathcal{L}$$','Interpreter','latex')
 axis([map1.polyMap.XWorldLimits,map1.polyMap.YWorldLimits])
 scalebar
 box off
@@ -27,8 +27,8 @@ h1 = figure(2);
 set(h1, 'Units','centimeters','Position', [1 1 0.33*width height])
 plot(map2.polyMap.x,map2.polyMap.y)
 set(gca ,'FontSize' ,10) ;
-% xlabel('K','Interpreter','latex')
-% ylabel('$$\mathcal{L}$$','Interpreter','latex')
+xlabel('K','Interpreter','latex')
+ylabel('$$\mathcal{L}$$','Interpreter','latex')
 axis([map2.polyMap.XWorldLimits,map2.polyMap.YWorldLimits])
 scalebar
 box off
