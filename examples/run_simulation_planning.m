@@ -1,13 +1,13 @@
 % Example 04:
 % Simulate the robot mowing the lawn. Thereby we use a partcile filter for
 % pose estimation.
-for x = 17:1:20
-clear all\x
+% for x = 2:1:5
+clear all
 close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_01.mat';  
+map = 'map_05.mat';  
 load(map);
 pose = [0.05; 0.05; 0];
 
@@ -22,10 +22,10 @@ particleMap = false;
     t = toc
     coverageResults.time = t;
     coverageResults.polyMap = polyMap;
-    name = strcat('planned99error90T_', num2str(x))
-    save(name, 'coverageResults')
-% save('planning10noError.mat', 'coverageResults')
-end
+%     name = strcat('random99_map5_', num2str(x))
+%     save(name, 'coverageResults')
+% save('planned99error90T_map5_5.mat', 'coverageResults')
+% end
 
 %% Plot some results
 figure()
