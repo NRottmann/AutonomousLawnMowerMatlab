@@ -289,20 +289,6 @@ classdef ParticleFilter
             pose = mean(obj.Particles(1:3,1:obj.N_P),2)';
             variance = std(obj.Particles(1:3,1:obj.N_P),0,2)';
         end
-        
-        function [spread] = getParticleSpread(obj)
-            spread = 0;
-            for i=1:1:obj.N_P
-                s = 0;
-                for j=i+1:1:obj.N_P
-                    if ~(i == j)
-                        s = s + norm(obj.Particles(1:2, i) - obj.Particles(1:2, j));
-                    end
-                end
-                spread = spread + (s/(obj.N_P-i+1));
-            end
-            spread = spread/obj.N_P;
-        end
     end
 end
 

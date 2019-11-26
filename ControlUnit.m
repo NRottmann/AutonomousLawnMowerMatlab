@@ -310,6 +310,7 @@ classdef ControlUnit
                 obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
                 obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
                 coverages = zeros(I, 1);
+                figure;
                 for i=1:1:I
                     disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
@@ -327,21 +328,17 @@ classdef ControlUnit
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     % Coverage
-                    v = ground(path(:,i), obj.PolyMap, obj.Resolution);
-                    vx = v(1);
-                    vy = v(2);
-                    ground(vx, vy) = 1;
-                    ground(mapAbs==0) = 0;
-                    coverage = sum(ground>=obj.Threshhold)/sum(mapAbs==1);
-                    disp(coverage);
-                    coverages(i) = coverage;
+                    if i == 10
+                        scatter(obj.ClassParticleFilter.Particles(1,:),obj.ClassParticleFilter.Particles(2,:),'.b');
+                        hold on
+                    end
                 end
-                figure()
-                plot(coverages);
+                scatter(obj.ClassParticleFilter.Particles(1,:),obj.ClassParticleFilter.Particles(2,:),'.r');
+                plot(path(1,:),path(2,:),'LineWidth',2,'Color','#EDB120')
+                set(gca,'visible','off')
+                scalebar
+                
             elseif mode == 3
-                cov25 = false;
-                cov50 = false;
-                cov75 = false;
                 p = T;
                 if T >=1
                     p = 1;
@@ -378,43 +375,6 @@ classdef ControlUnit
                     coverage = sum(ground>=obj.Threshhold)/sum(mapAbs==1);
                     disp(coverage);
                     coverages(i) = coverage;
-                    part = immse(ground, obj.ClassParticleFilter.CoverageMap);
-                    cov = immse(ground, obj.ClassCoverage.CoverageMap);
-                    errors(1,i) = cov;
-                    errors(2,i) = part;
-                    if ~cov25 && coverage > 0.25
-                        cov25 = true;
-                        results.path25 = path;
-                        results.estPath25 = estPath;
-                        results.coverageMap25 = obj.ClassCoverage.CoverageMap;
-                        results.particleCoverageMap25 = obj.ClassParticleFilter.CoverageMap;
-                        results.neuralActivity25 = obj.ClassNNCCPP.NeuralActivity;
-                        results.externalInput25 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth25 = ground;
-                        results.coverages25 = coverages;
-                    end
-                    if ~cov50 && coverage > 0.50
-                        cov50 = true;
-                        results.path50 = path;
-                        results.estPath50 = estPath;
-                        results.coverageMap50 = obj.ClassCoverage.CoverageMap;
-                        results.particleCoverageMap50 = obj.ClassParticleFilter.CoverageMap;
-                        results.neuralActivity50 = obj.ClassNNCCPP.NeuralActivity;
-                        results.externalInput50 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth50 = ground;
-                        results.coverages50 = coverages;
-                    end
-                    if ~cov75 && coverage > 0.50
-                        cov75 = true;
-                        results.path75 = path;
-                        results.estPath75 = estPath;
-                        results.coverageMap75 = obj.ClassCoverage.CoverageMap;
-                        results.particleCoverageMap75 = obj.ClassParticleFilter.CoverageMap;
-                        results.neuralActivity75 = obj.ClassNNCCPP.NeuralActivity;
-                        results.externalInput75 = obj.ClassNNCCPP.ExternalInput;
-                        results.groundTruth75 = ground;
-                        results.coverages75 = coverages;
-                    end
                 end
                 figure()
                 plot(coverages);
@@ -427,33 +387,30 @@ classdef ControlUnit
                 relocating = false;
                 spreads = zeros(I, 1);
                 coverages = zeros(I, 1);
-%                 figure()
-%                 plot(obj.PolyMap.x,obj.PolyMap.y)
-%                 hold on
                 for i=1:1:I
                     disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
-                    % Step 2: Get control input
+                    % Step 2: Get control input with state machine
                     if spread > obj.WallFollow && ~relocating
-                        relocating = true;
-                        if coverage < 0.5
+                        relocating = true; % change to wallfollowing
+                        if coverage < 0.5 % half the map not covered
                             half = false;
                             if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
-                                sensor = 1;
+                                sensor = 1; % right sensor
                             else
-                                sensor = 0;
+                                sensor = 0; % left sensor
                             end
-                        else
+                        else % half the map already covered
                             half = true;
                             if ((mod(estPath(3,i), 2*pi) > (3*pi)/2 || mod(estPath(3,i), 2*pi) < pi/2))
-                                sensor = 0;
+                                sensor = 0; % left sensor
                             else
-                                sensor = 1;
+                                sensor = 1; % right sensor
                             end
                         end
                     end
-                    if (relocating && spread < obj.WallFollow/3)
+                    if (relocating && spread < obj.WallFollow/3) % change from wallfollowing to NNCCPP
                         idx_x = ceil((estPath(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
                         idx_y = ceil((estPath(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
                         if ((~half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) ~= 0) || (half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) == 0))
@@ -461,24 +418,22 @@ classdef ControlUnit
                             obj.ClassWallFollower = WallFollower();
                         end
                     end
-                    if relocating
+                    if relocating % wallfollow
                         [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, sensor);
-                        %                         disp('relocating');
-                    else
-                        %                         disp('netting');
+                    else % netting
                         orientation = mod(estPath(3,i), 2*pi);
+                        % allocate control weight based on orientation
                         if (orientation > 7.5*pi/4 || orientation < 0.5*pi/4) || (orientation > 3.5*pi/4 && orientation < 4.5*pi/4)
                             obj.ClassNNCCPP.C = 100;
                         else
                             obj.ClassNNCCPP.C = 1.5;
                         end
-                        if particleMap
-%                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
+                        if particleMap % use particlemap
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
-                        else
-%                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
+                        else % use coveragemap
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         end
+                        % get movement data
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     end
                     % Step 3: Move Robot and store positions
@@ -488,7 +443,6 @@ classdef ControlUnit
                     % Step 5: Use Particle Filter
                     obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating, particleMap);
                     [estPath(:,i+1),var] = obj.ClassParticleFilter.getPoseEstimate();
-                    %                     spread = obj.ClassParticleFilter.getParticleSpread();
                     spread = mean(var);
                     spreads(i) = spread;
                     % Step 6: Update Coverage Map
@@ -505,11 +459,6 @@ classdef ControlUnit
                     obj.ClassCoverage.CoverageMap(mapAbs==0) = 0;
                     coverage = sum(obj.ClassCoverage.CoverageMap>=obj.Threshhold)/sum(mapAbs==1);
                     coverages(i) = coverage;
-%                     plot(path(1,i),path(2,i),'.')
-%                     xlim([-1,11])
-%                     ylim([-1,11])
-%                     hold on
-%                     pause(0.000001);
                 end
                 figure()
                 plot(spreads);
@@ -528,9 +477,6 @@ classdef ControlUnit
                 obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
                 spread = 0;
                 relocating = false;
-%                 figure()
-%                 plot(obj.PolyMap.x,obj.PolyMap.y)
-%                 hold on
                 while coverage < p
                     i = i + 1;
                     disp(i*obj.Dt)
@@ -538,24 +484,24 @@ classdef ControlUnit
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
                     if spread > obj.WallFollow && ~relocating
-                        relocating = true;
-                        if coverage < 0.5
+                        relocating = true; % change to wallfollowing
+                        if coverage < 0.5 % half the map not covered
                             half = false;
                             if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
-                                sensor = 1;
+                                sensor = 1; % right sensor
                             else
-                                sensor = 0;
+                                sensor = 0; % left sensor
                             end
-                        else
+                        else % half the map already covered
                             half = true;
                             if ((mod(estPath(3,i), 2*pi) > (3*pi)/2) || (mod(estPath(3,i), 2*pi) < pi/2))
-                                sensor = 0;
+                                sensor = 0; % left sensor
                             else
-                                sensor = 1;
+                                sensor = 1; % right sensor
                             end
                         end
                     end
-                    if (relocating && spread < obj.WallFollow/3)
+                    if (relocating && spread < obj.WallFollow/3) % change from wallfollowing to NNCCPP
                         idx_x = ceil((estPath(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
                         idx_y = ceil((estPath(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
                         if ((~half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) ~= 0) || (half && obj.ClassNNCCPP.ExternalInput(idx_x,idx_y) == 0))
@@ -563,24 +509,22 @@ classdef ControlUnit
                             obj.ClassWallFollower = WallFollower();
                         end
                     end
-                    if relocating
+                    if relocating % wallfollow
                         [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData, sensor);
-                                                disp('relocating');
-                    else
-                        %                         disp('netting');
+                    else % netting
                         orientation = mod(estPath(3,i), 2*pi);
+                        % allocate control weight based on orientation
                         if (orientation > 7.5*pi/4 || orientation < 0.5*pi/4) || (orientation > 3.5*pi/4 && orientation < 4.5*pi/4)
                             obj.ClassNNCCPP.C = 100;
                         else
                             obj.ClassNNCCPP.C = 1.5;
                         end
-                        if particleMap
-%                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
+                        if particleMap % use particlemap
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassParticleFilter.CoverageMap);
-                        else
-%                             obj.ClassNNCCPP.Threshhold = min(1 - spread, obj.Threshhold);
+                        else % use coveragemap
                             [obj.ClassNNCCPP,x] = obj.ClassNNCCPP.planStep(estPath(:,i),obj.ClassCoverage.CoverageMap);
                         end
+                        % get movement data
                         [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,i),[0;0],x,[0;0],estPath(3,i),0);
                     end
                     % Step 3: Move Robot and store positions
@@ -590,7 +534,6 @@ classdef ControlUnit
                     % Step 5: Use Particle Filter
                     obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData, relocating, particleMap);
                     [estPath(:,i+1),var] = obj.ClassParticleFilter.getPoseEstimate();
-                    %                     spread = obj.ClassParticleFilter.getParticleSpread();
                     spread = mean(var);
                     spreads(i) = spread;
                     % Step 6: Update Coverage Map
@@ -606,13 +549,8 @@ classdef ControlUnit
                     end
                     obj.ClassCoverage.CoverageMap(mapAbs==0) = 0;
                     coverage = sum(obj.ClassCoverage.CoverageMap>=obj.Threshhold)/sum(mapAbs==1)
-                    %                     disp(coverage);
+                    disp(coverage);
                     coverages(i) = coverage;
-%                     plot(path(1,i),path(2,i),'.')
-%                     xlim([-1,11])
-%                     ylim([-1,11])
-%                     hold on
-%                     pause(0.000001);
                 end
                 figure()
                 plot(spreads);
@@ -651,7 +589,6 @@ classdef ControlUnit
             results.externalInput = obj.ClassNNCCPP.ExternalInput;
             results.groundTruth = ground;
             results.coverages = coverages;
-            %             results.errors = errors;
         end
     end
 end

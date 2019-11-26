@@ -9,15 +9,15 @@ classdef NNCCPP
     
     properties
         % Storage variables
-        PolyMap;
-        ObstacleMap;
+        PolyMap;            % the map struct
+        ObstacleMap;        % Matrix [N,M] with ones if obstacle and zero if lawn
         NeuralActivity;     % Matrix [N,M] with values from -D (lower bound) and +B (upper bound)
         ExternalInput;      % Matrix [N,M] with values from -E to E
         N;                  % Total number of cells x-dimension
         M;                  % Total number of cells y-dimension
         TargetPosition;     % Current target position
-        Gradient;
-        Filter
+        Gradient;           % Matrix [N,M] resembling the gradient over the map
+        Filter;             % Matrix [3,3] used to filter the weights for the shunting equation
         
         % Parameter
         Resolution;         % Resolution of coverage map
@@ -26,8 +26,8 @@ classdef NNCCPP
         D;                  % Lower bound
         E;                  % Gain
         C;                  % Control gain  
-        Threshhold          % Threshhold for the coverageMap
-        G;
+        Threshhold;          % Threshhold for the coverageMap
+        G;                  % descent of the gradient
 
         Dt;                 % Step time   
     end
@@ -50,8 +50,6 @@ classdef NNCCPP
             
             obj.Filter = [sqrt(2) 1 sqrt(2); 1 0 1; sqrt(2) 1 sqrt(2)];
             
-%             out = get_config('system');
-%             obj.Dt = out.dt;
         end
         
         function obj = initializeNeuralNet(obj,polyMap)
@@ -91,7 +89,6 @@ classdef NNCCPP
             
             % Initialize current target position
             obj.TargetPosition = zeros(2,1);
-%             surf(obj.NeuralActivity')
         end
         
         function [obj,x] = planStep(obj,pose,coverageMap)
@@ -131,23 +128,8 @@ classdef NNCCPP
             X = obj.NeuralActivity;
             Xp = X;                         % positiv neural activity
             Xp(Xp < 0) = 0;
-%             Xp_tmp = zeros(obj.N,obj.M);    % Generate weighted inhibitory inputs
-%             for i=1:1:obj.N
-%                 for j=1:1:obj.M
-%                     for ii=-1:1:1
-%                         for jj=-1:1:1
-%                             iii = ii + i;
-%                             jjj = jj + j;
-%                             if ~(ii==0 && jj==0) && ((iii>=1 && iii<=obj.N) && (jjj>=1 && jjj<=obj.M))
-%                                 Xp_tmp(i,j) = Xp_tmp(i,j) + norm([ii; jj]) * Xp(iii,jjj);
-%                             end
-%                         end
-%                     end
-%                 end
-%             end
-%             Xp = Xp_tmp;
 
-            Xp_tmp = imfilter(Xp, obj.Filter);
+            Xp_tmp = imfilter(Xp, obj.Filter); % generate weighted inhibitory inputs for the shunting equation
             Xp = Xp_tmp;
             
             I = obj.ExternalInput;
@@ -157,6 +139,7 @@ classdef NNCCPP
             In(In > 0) = 0;
             In = -In;
 
+            % calculate the change for the neural activity
             dX = -obj.A*X + (obj.B*ones(obj.N,obj.M) - X) .* (Ip + Xp) ...
                             - (obj.D*ones(obj.N,obj.M) + X) .* In;
                         
@@ -173,7 +156,6 @@ classdef NNCCPP
             % Allocate neural activity
             X = obj.NeuralActivity;
             X = X .* obj.Gradient;
-%             surf(X')
             
             % Get the index according to the position of the vehicle
             idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
@@ -187,21 +169,16 @@ classdef NNCCPP
                         if (X(idx_x,idx_y) <= X(idx_x+i,idx_y+j)) && ~(i==0 && j==0)           % Do if value of cell is higher then initialPose and the cell is not the initial cell
                             ii = idx_x + i;
                             jj = idx_y + j;
-%                             if pose(3) >= 0
-%                                 orientation = mod(pose(3), 2*pi);
-%                                 orientationDiff = abs(orientate(i,j) - orientation);
-%                                 dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
-%                             else
-%                                 orientation = mod(pose(3), -2*pi);
-%                                 orientationDiff = abs(orientate(i,j) + orientation);
-%                                 dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
-%                             end
+                            % calculate orientation difference for control
+                            % input
                             orientation = mod(pose(3), 2*pi);
                             orientationDiff = abs(orientation - orientate(i,j));
                             if orientationDiff > pi
                                 orientationDiff = 2*pi - orientationDiff;
                             end
+                            % calculate weighted control input
                             dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
+                            % update control input
                             if dec_tmp > dec
                                 obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
                                 obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);

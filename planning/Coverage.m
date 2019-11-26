@@ -71,10 +71,11 @@ classdef Coverage
             %   particles:          Particles form the particle filter
             %   estPose:            Current pose estimate
             estimate = [ceil((estPose(1)-obj.PolyMap.XWorldLimits(1))*obj.Resolution);ceil((estPose(2)-obj.PolyMap.YWorldLimits(1))*obj.Resolution)];
-            if norm(estimate-obj.Pose) > 1/obj.Resolution
+            if norm(estimate-obj.Pose) > 1/obj.Resolution % do only if in new cell
                 obj.Pose = estimate;
                 n = length(particles(1,:));
                 prob = zeros(obj.N,obj.M);
+                % update coveragemap from new particles
                 for i=1:1:n
                     idx_x = ceil((particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
                     idx_y = ceil((particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
