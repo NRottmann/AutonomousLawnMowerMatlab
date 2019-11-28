@@ -3,7 +3,7 @@ close all, clear all, clc;
 map = 'map_NilsOma.mat';  
 load(map);
 Resolution = 10;
-load('planningExampleGradient.mat')
+% load('planningExampleGradient.mat')
 
 % Generate obstacle map, [N,M] Matrix initialized with zeros
 % when inside and ones when outside of a the environment

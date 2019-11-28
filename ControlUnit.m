@@ -450,7 +450,7 @@ classdef ControlUnit
                         obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     end
                     % Coverage
-                    v = ground(path(:,i), obj.PolyMap, obj.Resolution);
+                    v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
                     if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))

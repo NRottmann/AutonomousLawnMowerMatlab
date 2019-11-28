@@ -6,7 +6,7 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_NilsOma.mat'; % the map to mow
+map = 'map_1.mat'; % the map to mow
 load(map);
 pose = [0.05; 0.05; 0];
 
@@ -14,13 +14,13 @@ pose = [0.05; 0.05; 0];
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Complete Coverage with particle filter localization
-mode = 4;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
+mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
 particleMap = false;
 tic
 % first parameter: if mode with coverage, then the coverage to reach, else the time in seconds
 % second is the mode
 % third is if the NNCCPP should run with the particlemap or not
-[controlUnit,coverageResults] = controlUnit.completeCoverage(0.99, mode, particleMap); 
+[controlUnit,coverageResults] = controlUnit.completeCoverage(100, mode, particleMap); 
 t = toc
 coverageResults.time = t;
 coverageResults.polyMap = polyMap;

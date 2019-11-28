@@ -30,11 +30,6 @@ classdef ParticleFilter
         N_S;                            % Number sensors used, (1 or 2)
         ThresholdResampling;            % Threshold for resampling
         
-        Parallel;                       % Boolean of parallel computation required
-        A;                              % Odometrie model parameters
-        PosRight;
-        PosLeft;
-        
         % Classes
         OdometryModel;                  % This model is used for simulating particle movements based on the odometry data
         GrassSensor;                    % This model is used to simulate the sensor measurements for the particles  
@@ -148,7 +143,7 @@ classdef ParticleFilter
             end
         end
         
-        function obj = updateParticles(obj,sensorData,odometryData, relocating, particleMap, pose)
+        function obj = updateParticles(obj,sensorData,odometryData, relocating, particleMap)
             % This methods updates the particles from the particle filter
             % based on the measurements (odometry, sensorData)P
             % Syntax:
@@ -183,29 +178,13 @@ classdef ParticleFilter
                 sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
                 % Store measurements
                 if obj.N_S == 1
-                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = measurements(1,:);
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
                 elseif obj.N_S == 2
-                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = measurements(1,:);
-                    obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = measurements(2,:);
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
+                    obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = sensorParticleData.left;
                 else
                     error('Wrong number of sensors chosen (n_S)');
                 end   
-            else
-                for i = 1:1:obj.N_P
-                    % Move Particle, add noise
-                    obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
-                    % Simulate measurements based on the pose of the particles
-                    sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
-                    % Store measurements
-                    if obj.N_S == 1
-                        obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
-                    elseif obj.N_S == 2
-                        obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
-                        obj.ParticlesMeasurements{2}(obj.CounterMeasurements,i) = sensorParticleData.left;
-                    else
-                        error('Wrong number of sensors chosen (n_S)');
-                    end           
-                end
             end
 
             % Allocate real measurements to storage array
