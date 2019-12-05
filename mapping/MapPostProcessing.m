@@ -17,6 +17,7 @@ classdef MapPostProcessing
         ClosedDP;       % Closed dominant points
         A;              % Incident matrix
         CutA;           % Incident matrix for cutted DPs
+        Cut_indices;    % Indices which are cutted
         Circumference;  % Estimated Circumference
         
         % Parameter
@@ -35,6 +36,7 @@ classdef MapPostProcessing
             obj.A = A;
             
             obj.Circumference = 0;
+            obj.Cut_indices = 0;
             
             % Get parameter
             out = get_config('mapping');
@@ -225,6 +227,7 @@ classdef MapPostProcessing
             A_tmp(:,idx2:length(obj.DP(1,:))-1) = [];
             A_tmp(:,1:idx1-1) = [];
             obj.CutA = A_tmp;
+            obj.Cut_indices = idx1:idx2;
         end
     
         function [obj] = closeGraph(obj) 

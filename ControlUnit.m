@@ -158,8 +158,10 @@ classdef ControlUnit
             obj.EstPolyMap = obj.ClassMapPostProcessing.EstMap;
             % Allocate results
             results.estMap = obj.ClassMapPostProcessing.EstMap;      
-            results.DP = obj.ClassMapPostProcessing.DP;             
-            results.cutDP = obj.ClassMapPostProcessing.CutDP;          
+            results.DP = obj.ClassMapPostProcessing.DP;
+            results.DP_indices = obj.ClassPoseGraphOptimization.DP_indices;
+            results.cutDP = obj.ClassMapPostProcessing.CutDP;
+            results.cut_indices = obj.ClassMapPostProcessing.Cut_indices;
             results.closedDP = obj.ClassMapPostProcessing.ClosedDP;       
             results.A = obj.ClassMapPostProcessing.A;             
             results.cutA = obj.ClassMapPostProcessing.CutA;
@@ -174,7 +176,7 @@ classdef ControlUnit
             results.param.l_nh = obj.ClassPoseGraphOptimization.L_nh;
             results.param.c_min = obj.ClassPoseGraphOptimization.C_min;
             results.param.phi_cycle = obj.ClassPoseGraphOptimization.Phi_cycle;
-            results.param.m = obj.ClassPoseGraphOptimization.M;
+            results.param.m = obj.ClassPoseGraphOptimization.M; 
         end
 
         function [obj,results] = compare(obj,mode)

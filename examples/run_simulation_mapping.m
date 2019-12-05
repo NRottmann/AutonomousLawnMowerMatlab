@@ -7,7 +7,7 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_6.mat';
+map = 'map_5.mat';
 load(map);
 pose = [0; 0; 0];
 
@@ -39,12 +39,17 @@ startPose = 0;  % Choose a random start pose
 % [controlUnit,mappingResults] = controlUnit.mapping(estSensorPath,optimize);
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = true;
-optimize.mapping = 1;
+optimize.loopClosure = false;
+optimize.mapping = 0;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Compare estimated map with groundtruth
 comparisonResults = controlUnit.compare(6);
+
+%% Use second comparison method, first we have to generate the groundtruth DPs
+groundTruthDP = path(1:2,mappingResults.DP_indices);
+groundTruthDP_cut = groundTruthDP(:,mappingResults.cut_indices);
+graphRelationsResults = graphRelations(mappingResults.cutDP,groundTruthDP_cut);
 
 %% Plots
 figure,

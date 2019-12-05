@@ -4,7 +4,7 @@ classdef PoseGraphOptimization
     %
     % Methods:
     %  	PoseGraphOptimization(pathData)
-    %       This is tne constructot of the class
+    %       This is the constructor of the class
 
     % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
     % 24.01.2018
@@ -26,6 +26,8 @@ classdef PoseGraphOptimization
         Alpha4;
 
         BayRate;        % Bayesian Optimization Parameter
+        
+        DP_indices;     % Indices signaling which path points have been used for the DPs
     end
 
     methods
@@ -49,6 +51,8 @@ classdef PoseGraphOptimization
             obj.Alpha2 = out.a(2);
             obj.Alpha3 = out.a(3);
             obj.Alpha4 = out.a(4);
+            
+            obj.DP_indices = 0;
         end
 
         function [obj,X,A,Circumference] = generateMap(obj,pathData,optimize)
@@ -81,7 +85,8 @@ classdef PoseGraphOptimization
             disp(['Prune ',num2str(length(obj.PathData(1,:))),' data points ...'])
             pruningParam.e_max = obj.E_max;
             pruningParam.l_min = obj.L_min;
-            DP = generateDPs(obj.PathData,pruningParam);
+            [DP,DP_indices] = generateDPs(obj.PathData,pruningParam);
+            obj.DP_indices = DP_indices;
             disp(['Data points number reduced to ',num2str(length(DP(1,:))),'!'])
 
             % (2) Generate measurements from the pruned data set

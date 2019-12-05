@@ -1,8 +1,8 @@
-function DP = generateDPs(data,param)
+function [DP, DP_indices] = generateDPs(data,param)
     % Function which prunes the given odometry data set
     %
     % Syntax:
-    %       DP = generateDPs(data,param)
+    %       [DP, DP_indices] = generateDPs(data,param)
     %
     % input:
     %   data:   Odometry data (Matrix with 2 x N)
@@ -12,6 +12,7 @@ function DP = generateDPs(data,param)
     % output:
     %   DP:     Pruned odometry data points (Matrix with 2x M), we
     %           call them DPs (dominant points)
+    %   DP_indices: Indices from the path data used as DPs
 
     % Check size, matrix has to be 2 x N
     if ~(length(data(:,1)) == 2)
@@ -25,7 +26,8 @@ function DP = generateDPs(data,param)
     end
     
     N = length(data(1,:));
-
+    
+    DP_indices = 1;
     DP = data(:,1);
     S = data(:,1);
     for i=2:1:N
@@ -38,6 +40,7 @@ function DP = generateDPs(data,param)
             if (e < param.e_max)
                 S = S_tmp;
             else
+                DP_indices = [DP_indices; i-1];
                 DP = [DP, S(:,end)];
                 S = [S(:,end),data(:,i)];
             end
