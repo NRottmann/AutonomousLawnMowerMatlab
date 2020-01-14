@@ -246,15 +246,15 @@ classdef MapPostProcessing
                     S_tmp(i) = norm(X_tmp(:,i));
                 end
                 [pks, locs] = findpeaks(-S_tmp);
-                [~,idx] = max(pks);
-%                 % Calculate circumferences for the peak locations
-%                 U_pks = zeros(length(pks),1);
-%                 for i=1:1:length(pks)
-%                     for ii=1:1:locs(i)-1
-%                         U_pks(i) = U_pks(i) + norm(obj.CutDP(1:2,j+ii)-obj.CutDP(1:2,j+(ii-1)));
-%                     end
-%                 end
-%                 [minU,idx] = min(abs(obj.Circumference - U_pks));
+                % [~,idx] = max(pks);
+                % Calculate circumferences for the peak locations
+                U_pks = zeros(length(pks),1);
+                for i=1:1:length(pks)
+                    for ii=1:1:locs(i)-1
+                        U_pks(i) = U_pks(i) + norm(obj.CutDP(1:2,j+ii)-obj.CutDP(1:2,j+(ii-1)));
+                    end
+                end
+                [minU,idx] = min(abs(obj.Circumference - U_pks));
                 if (abs(pks(idx)) < 0.5)
                     X_closed = [obj.CutDP(:,j:j+locs(idx)-2),obj.CutDP(:,j)];
                     break

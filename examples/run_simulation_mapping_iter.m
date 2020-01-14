@@ -7,12 +7,17 @@ close all
 clc
 
 %% Choose the map and starting pose
-map = 'map_05.mat';  
+map = 'map_5.mat';  
 load(map);
 pose = [0; 0; 0];
 
-N = 1;
+N = 20;
 E = zeros(N,1);
+
+E_trans = zeros(N,1);
+E_rot = zeros(N,1);
+
+Param = cell(N,1);
 
 for i=1:1:N
     
@@ -20,19 +25,28 @@ for i=1:1:N
 controlUnit = ControlUnit(polyMap,pose);
 
 %% Follow the boundary line
-T = 3000;       % Simulation time in seconds
+T = 2000;       % Simulation time in seconds
 startPose = 0;  % Choose a random start pose
 [controlUnit,path,estPath] = controlUnit.wallFollowing(T,startPose);
 
 %% Generate map estimate from odometry data
 optimize.loopClosure = false;
-optimize.mapping = false;
+optimize.mapping = 1;
 [controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
 
 %% Post Process the map
-comparisonMode = 4;
-comparisonResults = controlUnit.compare(comparisonMode);
+[controlUnit,comparisonResults] = controlUnit.compare(6);
 
 E(i) = comparisonResults.error;
+
+%% Use second error metric
+groundTruthDP = path(1:2,mappingResults.DP_indices);
+groundTruthDP_cut = groundTruthDP(:,mappingResults.cut_indices);
+graphRelationsResults = graphRelations(mappingResults.cutDP,groundTruthDP_cut);
+
+E_trans(i) = graphRelationsResults.errorTrans;
+E_rot(i) = graphRelationsResults.errorRot;
+
+Param{i} = mappingResults.param;
 
 end

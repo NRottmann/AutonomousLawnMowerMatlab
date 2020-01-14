@@ -17,7 +17,8 @@ switch caseString
         out.v_max = 0.3;
         out.w_max = 0.6;
     case 'Sensor'
-        out.posRight = [0.265; -0.09];    % The right sensor is used for the wall follower      
+        % out.posRight = [0.265; -0.09];    % The right sensor is used for the wall follower 
+        out.posRight = [0.265; 0.0];
         out.posLeft = [0.265; 0.09];
         out.noise = 0.1;        % Noise of the sensor, 0 means no noise, 1 means totally random
     case 'kinModelNoise'  
@@ -27,11 +28,12 @@ switch caseString
         out.dR = 0.2147;
         out.dL = 0.2144;
     case 'odometryModelNoise'
-        % out.a = [0.0849, 0.0412, 0.0316, 0.0173];   % Standard deviation parameters
-        out.a = [0.2, 0.2, 0.2, 0.2];
+        out.a = [0.0849, 0.0412, 0.0316, 0.0173];   % Standard deviation parameters
+        % out.a = [0.2, 0.2, 0.2, 0.2];
     case 'system'
         out.dt = 0.05;
     case 'mapping'
+        % Standard: l_min = 0.1, e_max = 0.001, M = 100
         out.l_min = 0.05;
         out.e_max = 0.001;
         out.l_nh = 30;
@@ -42,11 +44,12 @@ switch caseString
         out.gamma2 = 1;
         out.bayRate = 1000;
 	case 'globalLocalization'
-        out.l_min = 0.1;
+        % Standard: l_min = 0.05, e_max = 0.001, u_min = 0.5
+        out.l_min = 0.05;
         out.e_max = 0.001;
         out.u_min = 0.5;
-        out.l_nh = 30;
-        out.c_min = 1.0;
+        out.l_nh = 15;
+        out.c_min = 0.1;
         out.c_diff = 0;
     case 'particleFilter'
         out.n_P = 250;                      % Number particles

@@ -357,10 +357,10 @@ classdef PoseGraphOptimization
             %       alpha2: ...
             %       alpha3: ...
             %       alpha4: ...
-            %   optimize:   If true, we optimize the parameters
-            %              	required, if false, we use the parameters
-            %           	from the get_config file
-            %
+            %   optimize:  
+            %       0: Nothing is optimized
+            %       1: gamma1, gamma2 are optimized
+            %       2: gamma1, gamma2, alpha1 - alpha4 are optimized
             % output:
             %   X:   	Estimation of new pose graph nodes
             %   A:      Incidence Matrix
