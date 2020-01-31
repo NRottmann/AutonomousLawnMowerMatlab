@@ -127,7 +127,7 @@ classdef ControlUnit
             obj.EstPose = estPath(:,end);
         end
         
-        function [obj,results] = mapping(obj,path,optimize)
+        function [obj,results] = mapping(obj,path,optimize,mode)
             % This is the mapping mode
             % Syntax:
             %       results = mapping(obj,path)
@@ -144,7 +144,7 @@ classdef ControlUnit
             %       polyMap:        The map estimate
             
             % Generate optimized path data
-            [obj.ClassPoseGraphOptimization,path,A,Circumference] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize);
+            [obj.ClassPoseGraphOptimization,path,A,Circumference] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize,mode);
             obj.ClassMapPostProcessing.DP = path(1:2,:);
             obj.ClassMapPostProcessing.A = A;
             obj.ClassMapPostProcessing.Circumference = Circumference;

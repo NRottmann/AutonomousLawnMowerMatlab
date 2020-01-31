@@ -25,8 +25,10 @@ ylabel('meter')
 
 %% Generate map estimate from odometry data
 optimize.loopClosure = true;
-optimize.mapping = 0;
-[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
+optimize.mapping = 2;
+mode.loopClosure = 1;
+mode.mapping = 2;
+[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize,mode);
 
 %% Plot the map estimate
 figure,

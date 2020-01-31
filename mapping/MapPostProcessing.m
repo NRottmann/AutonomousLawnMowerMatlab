@@ -269,7 +269,7 @@ classdef MapPostProcessing
                 j = j + 1;
             end
             if ~exist('X_closed')
-                error('Could not generate closed loop map!')
+                warning('Could not generate closed loop map!')
             else
                 obj.ClosedDP = X_closed;
             end

@@ -31,8 +31,9 @@ startPose = 0;  % Choose a random start pose
 
 %% Generate map estimate from odometry data
 optimize.loopClosure = false;
-optimize.mapping = 1;
-[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize);
+optimize.mapping = 0;
+mode.loopClosure = 2;
+[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize,mode);
 
 %% Post Process the map
 [controlUnit,comparisonResults] = controlUnit.compare(6);

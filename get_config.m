@@ -28,8 +28,8 @@ switch caseString
         out.dR = 0.2147;
         out.dL = 0.2144;
     case 'odometryModelNoise'
-        out.a = [0.0849, 0.0412, 0.0316, 0.0173];   % Standard deviation parameters
-        % out.a = [0.2, 0.2, 0.2, 0.2];
+        % out.a = [0.0849, 0.0412, 0.0316, 0.0173];   % Standard deviation parameters
+        out.a = [0.2, 0.2, 0.2, 0.2];
     case 'system'
         out.dt = 0.05;
     case 'mapping'
@@ -37,11 +37,12 @@ switch caseString
         out.l_min = 0.05;
         out.e_max = 0.001;
         out.l_nh = 30;
-        out.c_min = 1.0;
+        out.c_min = 0.3;
         out.phi_cycle = 1.5;
         out.M = 100;
         out.gamma1 = 1;
         out.gamma2 = 1;
+        out.icp = 0.1;
         out.bayRate = 1000;
 	case 'globalLocalization'
         % Standard: l_min = 0.05, e_max = 0.001, u_min = 0.5
