@@ -25,6 +25,9 @@ classdef MapPostProcessing
         L_nh;
         C_min;
         M;
+        
+        % Flags
+        FlagClosedMap;
     end
     
     methods
@@ -43,6 +46,9 @@ classdef MapPostProcessing
             obj.L_nh = out.l_nh;
             obj.C_min = out.c_min;
             obj.M = out.M;
+            
+            % Set Flags on false
+            obj.FlagClosedMap = false;
         end
         
         function results = compareMaps(obj,trueMap,mode)
@@ -179,14 +185,14 @@ classdef MapPostProcessing
             
             X1 = [Poly1.Vertices' Poly1.Vertices(1,:)'];
 
-            % Plot results
-            h =  findobj('type','figure');
-            n = length(h);
-            figure(n+1)
-            plot(X1(1,:),X1(2,:))
-            hold on
-            plot(X2(1,:),X2(2,:))
-            legend('Map Estimate','Original Map')
+%             % Plot results
+%             h =  findobj('type','figure');
+%             n = length(h);
+%             figure(n+1)
+%             plot(X1(1,:),X1(2,:))
+%             hold on
+%             plot(X2(1,:),X2(2,:))
+%             legend('Map Estimate','Original Map')
 
             % Put into results
             results.DP = obj.DP;
@@ -270,13 +276,18 @@ classdef MapPostProcessing
             end
             if ~exist('X_closed')
                 warning('Could not generate closed loop map!')
+                obj.FlagClosedMap = true;
             else
                 obj.ClosedDP = X_closed;
             end
         end
         
         function obj = generatePolyMap(obj)
-            obj.EstMap = genPolyMap(obj.ClosedDP(1,:),obj.ClosedDP(2,:));
+            if obj.FlagClosedMap
+                obj.EstMap = [];
+            else
+                obj.EstMap = genPolyMap(obj.ClosedDP(1,:),obj.ClosedDP(2,:));
+            end
         end
     end
     
@@ -307,6 +318,9 @@ classdef MapPostProcessing
                             break
                         end
                     end
+                end
+                if ~isfinite(trans(3)) || ~isreal(trans(3)) || isnan(trans(3))
+                    trans(3) = 0;
                 end
                 Poly1 = rotate(Poly1,trans(3),refpoint);
                 Poly1 = translate(Poly1,trans(1),trans(2));

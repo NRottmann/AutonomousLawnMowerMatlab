@@ -25,6 +25,8 @@ classdef PoseGraphOptimization
         Alpha3;
         Alpha4;
         Icp;            % Parameter for ICP performance
+        
+        ModelStepSize;  % Step size for generating model points for icp
 
         BayRate;        % Bayesian Optimization Parameter
         
@@ -47,6 +49,7 @@ classdef PoseGraphOptimization
             obj.Gamma2 = out.gamma2;
             obj.Icp = out.icp;
             obj.BayRate = out.bayRate;
+            obj.ModelStepSize = out.modelStepSize;
 
             out = get_config('odometryModelNoise');
             obj.Alpha1 = out.a(1);
@@ -104,13 +107,14 @@ classdef PoseGraphOptimization
             for ii=1:1:length(DP(1,:))-1
                 vec = DP(:,ii+1) - DP(:,ii);
                 dphi = atan2(vec(2),vec(1));
-                dx = DP(1,ii):cos(dphi)*0.01:DP(1,ii+1);
-                dy = DP(2,ii):sin(dphi)*0.01:DP(2,ii+1);
+                dx = DP(1,ii):cos(dphi)*obj.ModelStepSize:DP(1,ii+1);
+                dy = DP(2,ii):sin(dphi)*obj.ModelStepSize:DP(2,ii+1);
                 model_points = [model_points, [dx(2:end); dy(2:end)]];
                 idx_vertices = [idx_vertices; length(model_points(1,:))];
             end
             model.model_points = model_points;
             model.idx_vertices = idx_vertices;
+            model.stepSize = obj.ModelStepSize;
 
             % (3) Find pairs of DPs for Loop Closure
             disp('Search for loop closures ...')
@@ -174,7 +178,7 @@ classdef PoseGraphOptimization
             for i=2:1:(M-1)
                 R = [cos(theta(i-1)), -sin(theta(i-1)); ...
                                 sin(theta(i-1)), cos(theta(i-1))];
-                xi(1:2,i-1) = R' * (data(:,i+1) - data(:,i));
+                xi(1:2,i-1) = R' * (data(:,i) - data(:,i-1));
                 % Regularization
                 xi(3,i-1) = theta(i) - theta(i-1);
                 if xi(3,i-1) > pi
@@ -651,6 +655,7 @@ classdef PoseGraphOptimization
                 optimParam.alpha2 = param.alpha2;
                 optimParam.alpha3 = param.alpha3;
                 optimParam.alpha4 = param.alpha4;
+                optimParam.icp = param.icp;
                 [X_opt] = getOptimizedPath(optimParam);
                 disp(['Optimized Parameters:' newline ...
                     'gamma1: ' num2str(optimParam.gamma1) newline ...
@@ -661,7 +666,7 @@ classdef PoseGraphOptimization
                 % Optimize parameters using Bayesian Optimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
-                icp = optimizableVariable('icp',[0.02,1]);
+                icp = optimizableVariable('icp',[5*model.stepSize,100*model.stepSize]);
                 thetaOpt = [gamma1,gamma2,icp];
                 results = bayesopt(@PGOCost_gamma_icp,thetaOpt,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
@@ -681,7 +686,7 @@ classdef PoseGraphOptimization
                 % Optimize parameters using Bayesian Optimization
                 gamma1 = optimizableVariable('gamma1',[0.01,100],'Transform','log');
                 gamma2 = optimizableVariable('gamma2',[0.01,100],'Transform','log');
-                icp = optimizableVariable('icp',[0.02,1]);
+                icp = optimizableVariable('icp',[5*model.stepSize,100*model.stepSize]);
                 alpha1 = optimizableVariable('alpha1',[0.001,1],'Transform','log');
                 alpha2 = optimizableVariable('alpha2',[0.001,1],'Transform','log');
                 alpha3 = optimizableVariable('alpha3',[0.001,1],'Transform','log');
@@ -733,13 +738,17 @@ classdef PoseGraphOptimization
                     end
                 end
                 % Use mixture Models to get estimated circumference
-                if length(U) > 1
+                [n_check, d_check] = size(U);
+                if n_check <= d_check
+                    warn('U is not suitable');
+                end
+                if n_check > d_check
                     GMModel_tmp = fitgmdist(U,Cluster,'RegularizationValue',0.1);
                     U_mean = min(GMModel_tmp.mu);
                 elseif length(U) == 1
                     U_mean = U;
                 else
-                    error('Wrong size of U!')
+                    U_mean = 0;
                 end
 
                 % Calculate cost
@@ -753,7 +762,7 @@ classdef PoseGraphOptimization
                 if mode == 1
                     xi_all = [xi, zeros(3,M)];
                 elseif mode == 2
-                    [xi_lc] = PoseGraphOptimization.lc_icp(SP,model.model_points,model.idx_vertices,param.l_nh,theta.icp);
+                    [xi_lc,e_dist] = PoseGraphOptimization.lc_icp(SP,model.model_points,model.idx_vertices,param.l_nh,theta.icp);
                     xi_all = [xi, xi_lc];
                 else
                     error("Wrong mode chosen!")
@@ -778,7 +787,13 @@ classdef PoseGraphOptimization
                 % Adjust loop closing constraints according to the given
                 % parameters
                 for ii=N+1:1:N+M   	% Loop closing constraints
-                    Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/C(ii-N));
+                    if mode == 1
+                        Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/C(ii-N));
+                    elseif mode == 2
+                        Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/e_dist(ii-N));
+                    else
+                        error('Wrong mode chosen!')
+                    end
                 end
                 % Compute Hessian and coefficient vector
                 e = inf;
@@ -881,7 +896,7 @@ classdef PoseGraphOptimization
             end
         end
         
-        function [xi_lc] = lc_icp(SP,model_points,idx_vertices,l_nh,icp_param)
+        function [xi_lc,e_dist] = lc_icp(SP,model_points,idx_vertices,l_nh,icp_param)
             % Generates relative measurements based on the result of the
             % ICP algorithm
             %
@@ -895,16 +910,24 @@ classdef PoseGraphOptimization
             N_NH = floor(l_nh/icp_param);
             M = length(idx_vertices);
             xi_lc = [];
+            e_dist = [];
             for ii=1:1:M
                 for jj=(1+ii):1:M
                     % If there is a LC we do ICP
                     if SP(ii,jj) == 1
-                        % Put points together to get a good starting
-                        % position for ICP
+                        % Check of index exceeds array bounds
+                        if (idx_vertices(jj)+N_NH > length(model_points(1,:)))
+                            N_NH = length(model_points(1,:)) - idx_vertices(jj);
+                        end  
+                        % Define Sets for comparison and put them as close
+                        % as possible together
                         modelSet = model_points(:,idx_vertices(ii)-N_NH:idx_vertices(ii)+N_NH);
                         modelSet = modelSet - modelSet(:,N_NH+1);
                         testSet = model_points(:,idx_vertices(jj)-N_NH:idx_vertices(jj)+N_NH);
                         testSet = testSet - testSet(:,N_NH+1);
+                        % Define angles and adjust sets onto each other for
+                        % getting a good starting position for the ICP
+                        % algorithm
                         modelVec = modelSet(:,N_NH+2) - modelSet(:,N_NH+1);
                         modelPhi = atan2(modelVec(2),modelVec(1));
                         testVec = testSet(:,N_NH+2) - testSet(:,N_NH+1);
@@ -912,9 +935,27 @@ classdef PoseGraphOptimization
                         dphi = modelPhi - testPhi;
                         R_rot = [cos(dphi) -sin(dphi); sin(dphi) cos(dphi)];
                         testSet = R_rot*testSet;
-                        [R,T] = icp(modelSet,testSet);
-                        eul = rotm2eul([[R; 0, 0], [0; 0; 1]]);
-                        xi_lc = [xi_lc, [T(1); T(2); eul(1)]];
+                        % Do the ICP
+                        [R,T,~,res] = icp(modelSet,testSet);
+                        % Transform points
+                        testSet = R*testSet + T;
+                        % Define pose
+                        testVec = testSet(:,N_NH+2) - testSet(:,N_NH+1);
+                        testPhi = atan2(testVec(2),testVec(1));
+                        % Get relative measurements
+                        xi_lc_tmp = zeros(3,1);
+                        R_xi = [cos(modelPhi), -sin(modelPhi); ...
+                                sin(modelPhi), cos(modelPhi)];
+                        xi_lc_tmp(1:2) = R_xi' * (testSet(:,N_NH+1) - modelSet(:,N_NH+1));
+                        % Regularization
+                        xi_lc_tmp(3) = testPhi - modelPhi;
+                        if xi_lc_tmp(3) > pi
+                            xi_lc_tmp(3) = xi_lc_tmp(3) - 2*pi;
+                        elseif xi_lc_tmp(3) < -pi
+                            xi_lc_tmp(3) = xi_lc_tmp(3) + 2*pi;
+                        end
+                        xi_lc = [xi_lc, xi_lc_tmp];
+                        e_dist = [e_dist; res];
                     end
                 end
             end

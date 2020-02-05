@@ -29,7 +29,7 @@ settings{3}.optimize.mapping = 0;
 settings{3}.mode.loopClosure = 1;
 settings{3}.mode.mapping = 2;
 settings{4}.optimize.loopClosure = 1;
-settings{4}.optimize.mapping = 1;
+settings{4}.optimize.mapping = 2;
 settings{4}.mode.loopClosure = 1;
 settings{4}.mode.mapping = 2;
 % settings{5}.optimize.loopClosure = 1;
@@ -95,4 +95,4 @@ out = get_config('mapping');
 mappingParam = out;
 out = get_config('odometryModelNoise');
 odomParam = out;
-save('data2.mat','E','E_rot','E_trans','mappingParam','odomParam','Param','settings')
+save('data.mat','E','E_rot','E_trans','mappingParam','odomParam','Param','settings')
