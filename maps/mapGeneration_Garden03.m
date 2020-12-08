@@ -31,8 +31,14 @@ y = [y(1:5) y_seg1 y(8:11) y_seg2 y(14:15) y_seg3 0];
 
 % Generate polymap
 polyMap = genPolyMap(x,y);
+figure
 plot(polyMap.x,polyMap.y)
-save('map_garden03.mat','polyMap');
+
+gridMap = genGridMap(polyMap,20);
+figure
+show(gridMap)
+
+save('map_garden03.mat','polyMap','gridMap');
 
 % Function description
 function [x_seg,y_seg] = circleSegment(e,s,r,n,mode)

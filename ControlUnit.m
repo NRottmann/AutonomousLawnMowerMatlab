@@ -29,8 +29,8 @@ classdef ControlUnit
         ClassPDController;
         
         %% Storage Variables
-        PolyMap;
-        EstPolyMap;
+        Map;
+        EstMap;
         Pose;
         EstPose;
         Resolution;
@@ -42,7 +42,7 @@ classdef ControlUnit
     end
     
     methods
-        function obj = ControlUnit(polyMap,pose)
+        function obj = ControlUnit(map,pose)
             % This is the constructor of the class
             % Syntax:
             %       obj = ControlUnit()
@@ -56,7 +56,7 @@ classdef ControlUnit
             % Models
             obj.ClassOdometryModel = OdometryModel();
             obj.ClassKinematicModel = KinematicModel();
-            obj.ClassGrassSensor = GrassSensor(polyMap);
+            obj.ClassGrassSensor = GrassSensor(map);
             
             % Controller
             obj.ClassWallFollower = WallFollower();
@@ -65,18 +65,18 @@ classdef ControlUnit
             
             % Mapping
             obj.ClassPoseGraphOptimization = PoseGraphOptimization();
-            obj.ClassMapPostProcessing = MapPostProcessing([polyMap.x; polyMap.y],0);
+            obj.ClassMapPostProcessing = MapPostProcessing();
             
             % Localization
-            obj.ClassGlobalLocalizer = GlobalLocalizer(polyMap);
+            obj.ClassGlobalLocalizer = GlobalLocalizer(map);
             
             % Planning
             obj.ClassCoverage = Coverage();
             obj.ClassNNCCPP = NNCCPP();
             
             %% Initialize variables
-            obj.PolyMap = polyMap;
-            obj.EstPolyMap = polyMap;
+            obj.Map = map;
+            obj.EstMap = map;
             obj.Pose = pose;
             obj.EstPose = pose;
             
@@ -106,7 +106,7 @@ classdef ControlUnit
             path = zeros(3,I+1);
             estPath = zeros(3,I+1);
             if mode == 0
-                path(:,1) = generateStartPose(obj.PolyMap);     % Start with random initial start pose
+                path(:,1) = generateStartPose(obj.Map);     % Start with random initial start pose
             elseif mode == 1
                 path(:,1) = obj.Pose;
             else
@@ -134,7 +134,7 @@ classdef ControlUnit
             % Input:
             %   path:           Path data used for generating the map
             %   optimize:   struct for optimization
-            %       loopClosure:    if true, we optimize l_nh and c_min
+            %       loopClosure:    if true, we optimize l_nh and c_max
             %       mapping:        if true, we optimize gamma1 and gamma2
             % Output:
             %   results:        Results of the mapping approach
@@ -148,14 +148,17 @@ classdef ControlUnit
             obj.ClassMapPostProcessing.DP = path(1:2,:);
             obj.ClassMapPostProcessing.A = A;
             obj.ClassMapPostProcessing.Circumference = Circumference;
-            % Cut ends
+            % Cut ends and close the graph
             obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.cutGraph();
-            % Close graph
             obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.closeGraph();
-            % Generate poly map from closed graph
-            obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.generatePolyMap();
+            % Generate Map
+            if (isa(obj.Map,'binaryOccupancyMap'))
+                obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.generateGridMap();
+            else
+                obj.ClassMapPostProcessing = obj.ClassMapPostProcessing.generatePolyMap();
+            end
             % Adjust estimated map
-            obj.EstPolyMap = obj.ClassMapPostProcessing.EstMap;
+            obj.EstMap = obj.ClassMapPostProcessing.EstMap;
             % Allocate results
             results.estMap = obj.ClassMapPostProcessing.EstMap;      
             results.DP = obj.ClassMapPostProcessing.DP;
@@ -167,14 +170,14 @@ classdef ControlUnit
             results.cutA = obj.ClassMapPostProcessing.CutA;
             results.param.gamma(1,1) = obj.ClassPoseGraphOptimization.Gamma1;
             results.param.gamma(1,2) = obj.ClassPoseGraphOptimization.Gamma2;
-            results.param.alpha(1,1) = obj.ClassPoseGraphOptimization.Alpha1;
-            results.param.alpha(1,2) = obj.ClassPoseGraphOptimization.Alpha2;
-            results.param.alpha(1,3) = obj.ClassPoseGraphOptimization.Alpha3;
-            results.param.alpha(1,4) = obj.ClassPoseGraphOptimization.Alpha4;
+            results.param.beta(1,1) = obj.ClassPoseGraphOptimization.Beta1;
+            results.param.beta(1,2) = obj.ClassPoseGraphOptimization.Beta2;
+            results.param.beta(1,3) = obj.ClassPoseGraphOptimization.Beta3;
+            results.param.beta(1,4) = obj.ClassPoseGraphOptimization.Beta4;
             results.param.l_min = obj.ClassPoseGraphOptimization.L_min;
             results.param.e_max = obj.ClassPoseGraphOptimization.E_max;
             results.param.l_nh = obj.ClassPoseGraphOptimization.L_nh;
-            results.param.c_min = obj.ClassPoseGraphOptimization.C_min;
+            results.param.c_max = obj.ClassPoseGraphOptimization.C_max;
             results.param.phi_cycle = obj.ClassPoseGraphOptimization.Phi_cycle;
             results.param.m = obj.ClassPoseGraphOptimization.M; 
         end

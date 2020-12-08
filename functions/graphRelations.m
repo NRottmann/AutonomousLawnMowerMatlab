@@ -36,12 +36,15 @@ end
 % Get the error measurements
 errorTrans = 0;
 errorRot = 0;
+error = 0;
 for i=1:1:N
     errorTrans = errorTrans + xi_comp(1:2,i)'*xi_comp(1:2,i);
     errorRot = errorRot + xi_comp(3,i)^2;
+    error = error + xi_comp(3,i)^2 + xi_comp(1:2,i)'*xi_comp(1:2,i);
 end
 
 results.errorTrans = errorTrans/N;
 results.errorRot = errorRot/N;
+results.error = error/N;
 end
 

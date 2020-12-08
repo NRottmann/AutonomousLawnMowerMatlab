@@ -50,5 +50,11 @@ for j=0:1:rounds-1
 end
 
 polyMap = genPolyMap(xx',yy');
+figure
 plot(polyMap.x,polyMap.y)
-save('map_garden01.mat','polyMap');
+
+gridMap = genGridMap(polyMap,20);
+figure
+show(gridMap)
+
+save('map_garden01.mat','polyMap','gridMap');

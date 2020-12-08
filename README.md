@@ -1,4 +1,4 @@
-# Matlab Autonomous Lawn Mower (under current development)
+# Matlab Autonomous Lawn Mower
 Matlab Simulation environment for the self-designed autonomous lawn mower of the University of Luebeck. This environment is used to test ideas in advance. There is also a simulation environment based on ROS and Gazebo available.
 
 ## Requirements

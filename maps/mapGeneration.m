@@ -69,8 +69,12 @@ end
 
 %% Generate poly map and store it
 polyMap = genPolyMap(x{map_id},y{map_id});
-
+figure
 plot(polyMap.x,polyMap.y)
 
+gridMap = genGridMap(polyMap,20);
+figure
+show(gridMap)
+
 s = strcat('map_',num2str(map_id),'.mat');
-save(s,'polyMap');
+save(s,'polyMap','gridMap');

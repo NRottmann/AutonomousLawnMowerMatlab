@@ -13,16 +13,25 @@ classdef GrassSensor
 % Author:   Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
 
     properties
-        PolyMap;            % Map of the environment
+        Map;                % Map of the environment
+        MapType;            % Type oif the map, either polygon or occGrid
         PosRight;           % Position of the right sensor relative to the body frame
         PosLeft;            % Position of the left sensor relative to the body frame
         Noise;              % Sensor noise
     end
     
     methods
-        function obj = GrassSensor(polyMap)
+        function obj = GrassSensor(map)
             % Constructor
-            obj.PolyMap = polyMap;
+            if (isa(map,'binaryOccupancyMap'))
+                obj.MapType = 0;
+            else
+                obj.MapType = 1;
+            end
+            
+            
+            obj.Map = map;
+            
             % Load parameters
             out = get_config('Sensor');
             obj.PosRight =  out.posRight;
@@ -52,8 +61,13 @@ classdef GrassSensor
             pL = pose(1:2) + R*obj.PosLeft;
 
             % Make the measurements
-            sensorData.right = inpolygon(pR(1),pR(2),obj.PolyMap.x,obj.PolyMap.y);
-            sensorData.left = inpolygon(pL(1),pL(2),obj.PolyMap.x,obj.PolyMap.y);
+            if (obj.MapType == 0)
+                sensorData.right = getOccupancy(obj.Map,[pR(1),pR(2)]);
+                sensorData.left = getOccupancy(obj.Map,[pL(1),pL(2)]);
+            else
+                sensorData.right = inpolygon(pR(1),pR(2),obj.Map.x,obj.Map.y);
+                sensorData.left = inpolygon(pL(1),pL(2),obj.Map.x,obj.Map.y);
+            end
             
             % Corrupt measurements
             if rand() < 0.5*obj.Noise

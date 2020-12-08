@@ -81,9 +81,9 @@ classdef KinematicModel
 
             % Add noise, TODO: think about the final term g = ...
             if noisy
-                v = v + sampleNormalDistribution(obj.A(1)*abs(v) + obj.A(2)*abs(w));
-                w = w + sampleNormalDistribution(obj.A(3)*abs(v) + obj.A(4)*abs(w));
-                g = 0; %sampleNormalDistribution(obj.A(5)*abs(v) + obj.A(6)*abs(w));
+                v = v + normrnd(0, sqrt(obj.A(1)*abs(v) + obj.A(2)*abs(w)));
+                w = w + normrnd(0, sqrt(obj.A(3)*abs(v) + obj.A(4)*abs(w)));
+                g = 0; % normrnd(0, sqrt(obj.A(5)*abs(v) + obj.A(6)*abs(w)));
             else
                 g = 0;
             end
@@ -111,7 +111,7 @@ classdef KinematicModel
             end
 
 
-            %% Wheel Movements
+            %% Motion data
             vR = obj.L*w + v;
             vL = obj.L*w - v;
 

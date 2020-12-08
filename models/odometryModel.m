@@ -101,9 +101,9 @@ classdef OdometryModel
             %   p1:             Estimated Pose
 
             % Add noise
-            deltaR1 = obj.DeltaR1 - incNoise * sampleNormalDistribution(obj.A(1)*abs(obj.DeltaR1) + obj.A(2)*obj.DeltaT);
-            deltaT = obj.DeltaT - incNoise * sampleNormalDistribution(obj.A(3)*obj.DeltaT + obj.A(4)*abs(obj.DeltaR1+obj.DeltaR2));
-            deltaR2 = obj.DeltaR2 - incNoise * sampleNormalDistribution(obj.A(1)*abs(obj.DeltaR2) + obj.A(2)*obj.DeltaT);
+            deltaR1 = obj.DeltaR1 - incNoise * normrnd(0, sqrt(obj.A(1)*abs(obj.DeltaR1) + obj.A(2)*obj.DeltaT));
+            deltaT = obj.DeltaT - incNoise * normrnd(0, sqrt(obj.A(3)*obj.DeltaT + obj.A(4)*abs(obj.DeltaR1+obj.DeltaR2)));
+            deltaR2 = obj.DeltaR2 - incNoise * normrnd(0, sqrt(obj.A(1)*abs(obj.DeltaR2) + obj.A(2)*obj.DeltaT));
 
             % Generate noisy pose estimate
             if noisy

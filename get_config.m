@@ -12,36 +12,38 @@ switch caseString
     case 'WallFollower'
         out.a_mu = 0.7;
         out.a_v = 0.7;
-        out.M = 100;
+        out.M = 20;
     case 'VelLimitations'
-        out.v_max = 0.3;
-        out.w_max = 0.6;
+        out.v_max = 0.6;
+        out.w_max = 0.3;
     case 'Sensor'
-        % out.posRight = [0.265; -0.09];    % The right sensor is used for the wall follower 
-        out.posRight = [0.265; 0.0];
+        out.posRight = [0.265; -0.09];   
         out.posLeft = [0.265; 0.09];
-        out.noise = 0.1;        % Noise of the sensor, 0 means no noise, 1 means totally random
+        % Noise of the sensor, 0 means no noise, 1 means totally random
+        out.noise = 0.0;                   
     case 'kinModelNoise'  
-        out.a = [sqrt(0.0012),sqrt(0.001),sqrt(0.0057),sqrt(0.0032),sqrt(0.0035),sqrt(0.0046)];     % Standard deviation parameters
+        % Variance parameters for the velocity motion model
+        out.a = [0.01130, 0.003417, .0196777, 0.191406, 0.0, 0.0];
     case 'mowerParameter'
-        out.L = 0.1826;
-        out.dR = 0.2147;
-        out.dL = 0.2144;
+        out.L = 0.1825;
+        out.dR = 0.215;
+        out.dL = 0.215;
     case 'odometryModelNoise'
-        out.a = [0.0849, 0.0412, 0.0316, 0.0173];   % Standard deviation parameters
-        % out.a = [0.4, 0.4, 0.4, 0.4];
+        % Variance parameters for the odometry motion model
+        out.a = [0.002361, 0.000346, 0.000223, 0.000069]; 
     case 'system'
+        % Time step size
         out.dt = 0.05;
     case 'mapping'
         % Standard: l_min = 0.1, e_max = 0.001, M = 100
-        out.l_min = 0.05;
+        out.l_min = 0.1;
         out.e_max = 0.001;
-        out.l_nh = 30;
-        out.c_min = 1;
+        out.l_nh = 15;
+        out.c_max = 0.05;
         out.phi_cycle = 1.5;
         out.M = 100;
-        out.gamma1 = 1;
-        out.gamma2 = 1;
+        out.beta = [0.0002874, 0.00008569, 0.0022, 0.0013];
+        out.gamma = [1000, 0.001]; 
         out.modelStepSize = 0.01;
         out.icp = 10 * out.modelStepSize;
         out.bayRate = 1000;
