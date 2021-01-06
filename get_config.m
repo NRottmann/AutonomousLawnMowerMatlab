@@ -38,12 +38,12 @@ switch caseString
         % Standard: l_min = 0.1, e_max = 0.001, M = 100
         out.l_min = 0.1;
         out.e_max = 0.001;
-        out.l_nh = 15;
-        out.c_max = 0.05;
+        out.l_nh = 50;
+        out.c_max = 0.21;
         out.phi_cycle = 1.5;
         out.M = 100;
         out.beta = [0.0002874, 0.00008569, 0.0022, 0.0013];
-        out.gamma = [1000, 0.001]; 
+        out.gamma = [0.001, 100]; 
         out.modelStepSize = 0.01;
         out.icp = 10 * out.modelStepSize;
         out.bayRate = 1000;

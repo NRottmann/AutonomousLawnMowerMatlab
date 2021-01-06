@@ -7,8 +7,8 @@ clc
 
 %% Choose the data set and load the data, also the groundtruth map, if it exists
 data = 'garden03.mat';
-load(data)                  % Load real data
-% load(['map_' data]);        % Load groundtruth map
+load(data)                      % Load real data
+% load(['map_' data]);          % Load groundtruth map
 load('map_garden03.mat')
 
 %% Initialize the control unit

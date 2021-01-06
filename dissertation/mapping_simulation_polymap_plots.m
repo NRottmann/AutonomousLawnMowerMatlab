@@ -4,8 +4,22 @@ close all
 clc
 
 %% Choose the map and starting pose
-    map = 'map_1.mat';
+map = 'map_1.mat';
 load(map);
+
+%% Parameters
+optimize.loopClosure.flag = 1;
+optimize.loopClosure.plotting.flag = 0;
+optimize.loopClosure.plotting.width = 16.2/3;    % centimeter for a page site
+optimize.loopClosure.plotting.height = 5.0;
+optimize.mapping = 1;
+
+mode.loopClosure = 1;       % 1: Scan alignment (ECMR Paper), 2: ICP
+mode.mapping = 2;           % 1: ECMR Paper, 2: ICP as proposed in IROS Workshop Paper
+
+plotting.flag = false;
+plotting.width = 16.2/3;    % centimeter for a page site
+plotting.height = 5.0;
 
 %% Initialize the control unit
 controlUnit = ControlUnit(polyMap,[0; 0; 0]);
@@ -27,11 +41,10 @@ xlabel('meter')
 ylabel('meter')
 
 %% Generate map estimate from odometry data
-optimize.loopClosure = 0;
-optimize.mapping = 0;
-mode.loopClosure = 1;       % 1: Scan alignment (ECMR Paper), 2: ICP
-mode.mapping = 2;           % 1: ECMR Paper, 2: ICP as proposed in IROS Workshop Paper
-[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize,mode);
+[controlUnit,mappingResults] = controlUnit.mapping(estPath,optimize,mode,plotting);
+
+%% Compare estimated map with groundtruth
+[controlUnit,comparisonResults] = controlUnit.compare(6);
 
 %% Plot the map estimate
 figure

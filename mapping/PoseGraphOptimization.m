@@ -58,7 +58,7 @@ classdef PoseGraphOptimization
             obj.DP_indices = 0;
         end
 
-        function [obj,X,A,Circumference] = generateMap(obj,pathData,optimize,mode)
+        function [obj,X,A,Circumference] = generateMap(obj,pathData,optimize,mode,plotting)
             % This is the main function of the class which runs the mapping
             % algorithm and gives back an map estimate
             %
@@ -74,6 +74,7 @@ classdef PoseGraphOptimization
             %                       gamma(2)
             %   mode:       struct for determining modes
             %       loopClosure:    mode for the loop closure detection
+            %   plotting:           if true, graphs are plotted 
             %
             % Output:
             %   X:      Pose Graph
@@ -86,6 +87,17 @@ classdef PoseGraphOptimization
                 error('PoseGraphOptimization: Size of path data incorrect, should be 2 x N!')
             end
             obj.PathData = pathData;
+            
+            % (0 after) Print original data  
+            if plotting.flag
+                h = figure;
+                set(h, 'Units','centimeters','Position', [1 1 plotting.width plotting.height])
+                plot(pathData(1,:),pathData(2,:),'LineWidth',1.5)
+                set(gca ,'FontSize' ,10)
+                scalebar;
+                box off
+                axis off
+            end
 
             % (1) Data Pruning of the odometry data
             disp(['Prune ',num2str(length(obj.PathData(1,:))),' data points ...'])
@@ -93,6 +105,20 @@ classdef PoseGraphOptimization
             pruningParam.l_min = obj.L_min;
             [DP,obj.DP_indices] = generateDPs(obj.PathData,pruningParam);
             disp(['Data points number reduced to ',num2str(length(DP(1,:))),'!'])
+            
+                            
+            % (1 after) Print pruned data  
+            if plotting.flag
+                h = figure;
+                set(h, 'Units','centimeters','Position', [1 1 plotting.width plotting.height])
+                plot(DP(1,:),DP(2,:),'LineWidth',1.5)
+                hold on
+                plot(DP(1,:),DP(2,:),'r.','MarkerSize',5)
+                set(gca ,'FontSize' ,10)
+                scalebar;
+                box off
+                axis off
+            end
             
             for iter=1:1:1
                 % (2) Generate measurements from the pruned data set
@@ -128,7 +154,27 @@ classdef PoseGraphOptimization
                 obj.C_max = optimParam.c_max;
                 obj.Phi_cycle = optimParam.phi_cycle;
                 disp(['Found ',num2str(length(L)),' loop closures!'])
-
+                
+                % (3 after) Print constraints  
+                if plotting.flag
+                    h = figure;
+                    set(h, 'Units','centimeters','Position', [1 1 plotting.width plotting.height])
+                    plot(DP(1,:),DP(2,:),'LineWidth',1.5)
+                    hold on
+                    plot(DP(1,:),DP(2,:),'r.','MarkerSize',5)
+                    for i=1:1:length(DP(1,:))-1
+                        for j=(1+i):1:length(DP(1,:))-1
+                            if SP(i,j) == 1
+                                plot(DP(1,[i j]),DP(2,[i j]),'r-','LineWidth',1.5)
+                            end
+                        end
+                    end
+                    set(gca ,'FontSize' ,10)
+                    scalebar;
+                    box off
+                    axis off
+                end
+                
                 % (4) PGO
                 disp('Optimize the pose graph ...')
                 optParam.gamma1 = obj.Gamma1;
@@ -152,6 +198,135 @@ classdef PoseGraphOptimization
                 
                 DP = [X(1:2,:), DP(:,end)];
             end
+            
+            % (5) Print final optimized pose graph
+            if plotting.flag
+                h = figure;
+                set(h, 'Units','centimeters','Position', [1 1 plotting.width plotting.height])
+                plot(DP(1,:),DP(2,:),'LineWidth',1.5)
+                hold on
+                plot(DP(1,:),DP(2,:),'r.','MarkerSize',5)
+                for i=1:1:length(DP(1,:))-1
+                    for j=(1+i):1:length(DP(1,:))-1
+                        if SP(i,j) == 1
+                            plot(DP(1,[i j]),DP(2,[i j]),'r-','LineWidth',1.5)
+                        end
+                    end
+                end
+                set(gca ,'FontSize' ,10)
+                scalebar;
+                box off
+                axis off
+                legend('Graph','DPs','LCs')
+                legend boxoff
+            end
+            
+%             %%%%%%%%%%%%%% Test %%%%%%%%%%%%%%%
+%             % Get more loop closures based on the circumference
+%             % information
+%             [~,idx11] = min(A(:,length(DP(1,:))-1:end)); 	% First loop closing constraint
+%             idx1 = min(idx11);
+%             [~,idx22] = max(A(:,length(DP(1,:))-1:end));	% Last loop closing constraint
+%             idx2 = max(idx22);
+%             
+%             numRoundSamples = 1000;
+%             
+%             cutDP = DP(:,idx1:idx2);
+%             l_cum = 0;
+%             t = 0;
+%             delta = Circumference/numRoundSamples;
+%             
+%             samplePoints = [];
+%             
+%             for i=2:1:length(cutDP(1,:))
+%                 v = cutDP(:,i) - cutDP(:,i-1);
+%                 
+%                 point = cutDP(:,i-1) + (t-l_cum)*(v/norm(v));
+%                 time = (t/Circumference); time = floor((time - floor(time)) * numRoundSamples);
+%                 
+%                 samplePoints = [samplePoints, [point; time]];
+%                 
+%                 while true
+%                     t =  t + delta;
+%                     if (t > (l_cum + norm(v)))
+%                         l_cum = l_cum + norm(v);
+%                         break
+%                     else
+%                         point = cutDP(:,i-1) + (t-l_cum)*(v/norm(v));
+%                         time = (t/Circumference); time = floor((time - floor(time)) * numRoundSamples);
+%                 
+%                         samplePoints = [samplePoints, [point; time]];
+%                     end
+%                 end
+%             end
+%             
+%             %%%%%
+%             % Generatee closed map estimate
+%             closedMap = [];
+%             % Add loop closing constraints
+%             for i=0:1:numRoundSamples-1
+%                 idx = find(samplePoints(3,:) == i);
+%                 closedMap = [closedMap, mean(samplePoints(1:2,idx),2)];
+%             end
+%             closedMap = [closedMap, closedMap(:,1)];
+%             
+%             figure
+%             plot(closedMap(1,:),closedMap(2,:))
+            
+%             %%%%%
+%             % Generate pose graph
+%             graph = poseGraph;
+%             
+%             % Add odometrc constraints
+%             xi = PoseGraphOptimization.generateMeasurements(samplePoints(1:2,:));
+%             for i=1:1:length(xi(1,:))
+%                 addRelativePose(graph, xi(:,i));
+%             end
+%             
+%             % Add loop closing constraints
+%             for i=0:1:numRoundSamples-1
+%                 idx = find(samplePoints(3,:) == i);
+%                 for j=1:1:length(idx)
+%                     for k=j+1:1:length(idx)
+%                         if (idx(j) < graph.NumNodes && idx(k) < graph.NumNodes)
+%                             if (idx(j) ~= idx(k) && idx(j)+1 ~= idx(k)) 
+%                                 addRelativePose(graph, [0,0,0],[1 0 0 1 0 1],idx(j),idx(k));
+%                             end
+%                         end
+%                     end
+%                 end
+%             end
+%             
+%             updatedGraph = optimizePoseGraph(graph);
+%             figure
+%             show(updatedGraph,'IDs','off')
+            
+            
+%             %%%%%%%%%%%%%%%%% Test %%%%%%%%%%%%%%%%%%%%
+%             % Get more loop closures based on the circumference
+%             % information
+%             [~,idx11] = min(A(:,length(DP(1,:))-1:end)); 	% First loop closing constraint
+%             idx1 = min(idx11);
+%             [~,idx22] = max(A(:,length(DP(1,:))-1:end));	% Last loop closing constraint
+%             idx2 = max(idx22);
+%             
+%             % Generate pose graph
+%             graph = poseGraph;
+%             
+%             % Add odometrc constraints
+%             for i=idx1:1:idx2
+%                 addRelativePose(graph, xi(:,i));
+%             end
+%             
+%             % Add loop closing constraints
+%             for i=1:1:length(SP(1,:))
+%                 for j=(1+i):1:length(SP(1,:))
+%                     if SP(i,j) == 1
+%                         addRelativePose(graph, [0,0,0],[1 0 0 1 0 1],i-(idx1-1),j-(idx1-1));
+%                     end
+%                 end
+%             end
+            
         end
     end
 
@@ -237,21 +412,23 @@ classdef PoseGraphOptimization
             model_points = model.model_points;
             idx_vertices = model.idx_vertices;
             
-            M = length(data(1,:));                              % Number of data points
-            l_nh = optimizableVariable('l_nh',[5,20]);
-            c_max = optimizableVariable('c_max',[0.001,10],'Transform','log');
+            M = length(data(1,:)) - 1;                              % Number of data points
+            l_nh = optimizableVariable('l_nh',[20,40]);
+            c_max = optimizableVariable('c_max',[0.01,1]);
             phi_cycle = optimizableVariable('phi_cycle',[pi/2,pi]);
            
             if (mode == 1 || mode == 2)
+                
                 % Get length and orientations
                 phi = zeros(M,1);
-                l = zeros(M,1);
-                for i=3:1:M                                     % Go through all DPs
+                l = zeros(M+1,1);
+                for i=2:1:M                                     % Go through all DPs
                     v = data(:,i) - data(:,i-1);
-                    phi_tmp = atan2(v(2),v(1));
-                    phi(i-1) = phi_tmp;                         % Orientation of line segments
-                    l(i-1) = norm(data(:,i) - data(:,i-1));   	% Length of line segments
+                    phi(i-1) = atan2(v(2),v(1));              	% Orientation of line segments
+                    l(i) = norm(v);                             % Length of line segments
                 end
+                l(M+1) = [];
+                
                 % Accumulate Orientations
                 phi_cumulated = zeros(M,1);
                 l_cumulated = zeros(M,1);
@@ -269,8 +446,45 @@ classdef PoseGraphOptimization
                   l_cumulated(i) = l_cumulated(i-1) + l(i);
                 end
                 
+                % Decide wether we would like to generate a plot of the
+                % cost function or not
+                if optimize.plotting.flag
+                    num_p = 50;
+                    disp(['Start generating plot for the cost function'])
+                    
+                    my_fun = @loopClosureCost;
+                    
+                    l_nh_tmp = linspace(10.2,20,num_p);
+                    c_max_tmp = linspace(0.01,0.5,num_p);
+                    cost_plot_tmp = zeros(num_p);
+                    parfor i_tmp = 1:1:num_p
+                        for j_tmp = 1:1:num_p
+                            theta_tmp = [];
+                            theta_tmp.l_nh = l_nh_tmp(i_tmp);
+                            theta_tmp.c_max = c_max_tmp(j_tmp);
+                            theta_tmp.phi_cycle = 1.5;
+                            cost_plot_tmp(i_tmp,j_tmp) = my_fun(theta_tmp);
+                            % Plot status
+                            disp([num2str((i_tmp-1)*num_p + j_tmp),'/',num2str(num_p^2)])
+                        end
+                    end
+                    
+                    % Plotting everything
+                    cost_plot_tmp(isinf(cost_plot_tmp)) = nan;
+                    [XX,YY] = meshgrid(l_nh_tmp,c_max_tmp);
+                    h1 = figure;
+                    set(h1, 'Units','centimeters','Position', [1 1 optimize.plotting.width optimize.plotting.height])
+                    surf(XX,YY,cost_plot_tmp)
+                    set(gca,'YScale','log')
+                    set(gca ,'FontSize' ,10)
+                    hold on
+                    [~,h2] = contourf(XX,YY,cost_plot_tmp,20);
+                    % set_contour_z_level(h2, -9)
+                    box off
+                end
+                
                 % Decide wether a parameter optimization is required or not
-                if ~optimize
+                if ~optimize.flag
                     % Calculate similar points
                     if mode == 1
                         [SP,L,Phi,corr] = calculateSP(param);
@@ -310,8 +524,8 @@ classdef PoseGraphOptimization
                 if (size(U,1) > size(U,2))
                     for ll = 1:1:length(U)-1
                         GMModel = fitgmdist(U,ll,'RegularizationValue',0.1);
-                        % newcost = GMModel.NegativeLogLikelihood/(length(U));
-                        newcost = GMModel.NegativeLogLikelihood;
+                        newcost = GMModel.NegativeLogLikelihood/(length(U));
+                        % newcost = GMModel.NegativeLogLikelihood;
                         diff = cost_U - newcost;
                         if diff < 1
                             break;
@@ -329,11 +543,11 @@ classdef PoseGraphOptimization
                         k_GM = 1;
                     end
                     GMModel_phi = fitgmdist(U_phi,k_GM,'RegularizationValue',0.1);
-                    % cost_U_phi = GMModel_phi.NegativeLogLikelihood/(length(U_phi));
-                    cost_U_phi = GMModel_phi.NegativeLogLikelihood;
+                    cost_U_phi = GMModel_phi.NegativeLogLikelihood/(length(U_phi));
+                    % cost_U_phi = GMModel_phi.NegativeLogLikelihood;
                 end
                 % Add costs together
-                cost = cost_U + cost_U_phi - log(length(U));
+                cost = cost_U - log(length(U)); % + cost_U_phi;  % - log(length(U));
             end
 
             % This function generates the loop closing pairs (SP)
@@ -502,7 +716,7 @@ classdef PoseGraphOptimization
             %   A:      Incidence Matrix
 
             % check sizes
-            if (length(xi(1,:)) + 2) ~= length(SP(1,:))
+            if (length(xi(1,:)) + 1) ~= length(SP(1,:))
                 error('Sizes between xi and SP are not correct!')
             end
 
@@ -547,8 +761,12 @@ classdef PoseGraphOptimization
                     GMModelOld = GMModel;
                 end
             end
-            Circumference = min(GMModelOld.mu);
-            Cluster = GMModelOld.NumComponents;
+            if (isempty(GMModelOld))
+                Circumference = L;
+            else
+                Circumference = min(GMModelOld.mu);
+                Cluster = GMModelOld.NumComponents;
+            end
 
             % Decide wether we optimize mapping parameter
             if (optimize == 0)
@@ -558,10 +776,10 @@ classdef PoseGraphOptimization
             elseif (optimize == 1)
                 disp('Optimize parameters for pose graph optimization (gamma values) ...')
                 % Optimize parameters using Bayesian Optimization
-                gamma1 = optimizableVariable('gamma1',[0.000001,1000],'Transform','log');
-                gamma2 = optimizableVariable('gamma2',[0.000001,1000],'Transform','log');
+                gamma1 = optimizableVariable('gamma1',[0.001,1000],'Transform','log');
+                gamma2 = optimizableVariable('gamma2',[0.001,1000],'Transform','log');
                 thetaOpt = [gamma1,gamma2];
-                results = bayesopt(@PGOCost_gamma,thetaOpt,'Verbose',1,'PlotFcn',{});
+                results = bayesopt(@PGOCost_gamma,thetaOpt,'MaxObjectiveEvaluations',30,'Verbose',1,'PlotFcn',{});
                 % Calculate optimized similar points
                 optimParam = results.XAtMinObjective;
                 optimParam.beta1 = param.beta1;
@@ -577,8 +795,8 @@ classdef PoseGraphOptimization
         	elseif (optimize == 2)
                 disp('Optimize parameters for pose graph optimization (gamma and icp values) ...')
                 % Optimize parameters using Bayesian Optimization
-                gamma1 = optimizableVariable('gamma1',[0.000001,1000],'Transform','log');
-                gamma2 = optimizableVariable('gamma2',[0.000001,1000],'Transform','log');
+                gamma1 = optimizableVariable('gamma1',[0.001,1000],'Transform','log');
+                gamma2 = optimizableVariable('gamma2',[0.001,1000],'Transform','log');
                 icp = optimizableVariable('icp',[5*model.stepSize,100*model.stepSize]);
                 thetaOpt = [gamma1,gamma2,icp];
                 results = bayesopt(@PGOCost_gamma_icp,thetaOpt,'Verbose',1,'PlotFcn',{});
@@ -597,8 +815,8 @@ classdef PoseGraphOptimization
             elseif (optimize == 3)
                 disp('Optimize parameters for pose graph optimization (gamma and beta values) ...')
                 % Optimize parameters using Bayesian Optimization
-                gamma1 = optimizableVariable('gamma1',[0.000001,1000],'Transform','log');
-                gamma2 = optimizableVariable('gamma2',[0.000001,1000],'Transform','log');
+                gamma1 = optimizableVariable('gamma1',[0.001,1000],'Transform','log');
+                gamma2 = optimizableVariable('gamma2',[0.001,1000],'Transform','log');
                 icp = optimizableVariable('icp',[5*model.stepSize,100*model.stepSize]);
                 beta1 = optimizableVariable('beta1',[0.000001,1],'Transform','log');
                 beta2 = optimizableVariable('beta2',[0.000001,1],'Transform','log');
@@ -686,12 +904,12 @@ classdef PoseGraphOptimization
                 Omega = cell(N+M,1);
                 % Get information gain for the odometry measurements
                 for ii=1:1:N         % Odometric constraints
-                    sigma(1) = (theta.beta1*abs(X(1,ii)) + theta.beta2*abs(X(3,ii)));
-                    sigma(2) = (theta.beta1*abs(X(2,ii)) + theta.beta2*abs(X(3,ii)));
-                    sigma(3) = (theta.beta3*abs(X(3,ii)) + theta.beta4 * (abs(X(1,ii)) + abs(X(2,ii))));
+                    sigma(1) = (theta.beta1*abs(xi(1,ii)) + theta.beta2*abs(xi(3,ii)));
+                    sigma(2) = (theta.beta1*abs(xi(2,ii)) + theta.beta2*abs(xi(3,ii)));
+                    sigma(3) = (theta.beta3*abs(xi(3,ii)) + theta.beta4 * (abs(xi(1,ii)) + abs(xi(2,ii))));
                     for jj=1:1:3     % Avoid singularities
-                        if sigma(jj) < 10^(-9)
-                            sigma(jj) = 10^(-9);
+                        if sigma(jj) < 10^(-6)
+                            sigma(jj) = 10^(-6);
                         end
                     end
                     Omega{ii} = diag(sigma)^(-1);
@@ -702,7 +920,8 @@ classdef PoseGraphOptimization
                     if mode == 1
                         Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/C(ii-N));
                     elseif mode == 2
-                        Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/e_dist(ii-N));
+                        Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/C(ii-N));
+                        % Omega{ii} = diag([1/theta.gamma1 1/theta.gamma1 1/theta.gamma2]) * (1/e_dist(ii-N));
                     else
                         error('Wrong mode chosen!')
                     end
@@ -739,6 +958,11 @@ classdef PoseGraphOptimization
                     dX = zeros(3,N+1);
                     for ii=1:1:(N+1)
                         dX(:,ii) = dX_tmp(((ii*3)-2):(ii*3));
+                        
+                        if (isnan(dX))
+                            disp('Damnit!')
+                        end
+                        
                     end
                     X = X + dX;
                 end
@@ -820,7 +1044,7 @@ classdef PoseGraphOptimization
             %   R:      Rotation matrix
             %
             N_NH = floor(l_nh/icp_param);
-            M = length(idx_vertices);
+            M = length(idx_vertices) - 1;
             xi_lc = [];
             e_dist = [];
             for ii=1:1:M

@@ -127,7 +127,7 @@ classdef ControlUnit
             obj.EstPose = estPath(:,end);
         end
         
-        function [obj,results] = mapping(obj,path,optimize,mode)
+        function [obj,results] = mapping(obj,path,optimize,mode,plotting)
             % This is the mapping mode
             % Syntax:
             %       results = mapping(obj,path)
@@ -136,6 +136,7 @@ classdef ControlUnit
             %   optimize:   struct for optimization
             %       loopClosure:    if true, we optimize l_nh and c_max
             %       mapping:        if true, we optimize gamma1 and gamma2
+            %       plotting:       if true, we plot some graphs
             % Output:
             %   results:        Results of the mapping approach
             %       optimizedPath:  The whole path after optimization
@@ -144,7 +145,8 @@ classdef ControlUnit
             %       polyMap:        The map estimate
             
             % Generate optimized path data
-            [obj.ClassPoseGraphOptimization,path,A,Circumference] = obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize,mode);
+            [obj.ClassPoseGraphOptimization,path,A,Circumference] = ...
+                obj.ClassPoseGraphOptimization.generateMap(path(1:2,:),optimize,mode,plotting);
             obj.ClassMapPostProcessing.DP = path(1:2,:);
             obj.ClassMapPostProcessing.A = A;
             obj.ClassMapPostProcessing.Circumference = Circumference;
@@ -193,9 +195,14 @@ classdef ControlUnit
             %       error:          The error between the true map and the
             %                       estimated one
             %       alignedPath:    The aligned path of the map estimate
-            
-            results = obj.ClassMapPostProcessing.compareMaps(obj.PolyMap,mode);
-            obj.EstPolyMap = results.turnedEstPolyMap;         
+            if (isa(obj.Map,'binaryOccupancyMap'))
+                disp('No PolyMap!')
+            else
+                results = obj.ClassMapPostProcessing.compareMaps(obj.Map,mode);
+                if (obj.ClassMapPostProcessing.FlagClosedMap)
+                    obj.EstMap = results.turnedEstPolyMap;  
+                end
+            end
         end
         
         function [obj,results] = globalLocalization(obj,T,mode,mapParam)
