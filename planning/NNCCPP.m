@@ -9,7 +9,7 @@ classdef NNCCPP
     
     properties
         % Storage variables
-        PolyMap;            % the map struct
+        Map;            % the map struct
         ObstacleMap;        % Matrix [N,M] with ones if obstacle and zero if lawn
         NeuralActivity;     % Matrix [N,M] with values from -D (lower bound) and +B (upper bound)
         ExternalInput;      % Matrix [N,M] with values from -E to E
@@ -52,35 +52,43 @@ classdef NNCCPP
             
         end
         
-        function obj = initializeNeuralNet(obj,polyMap)
+        function obj = initializeNeuralNet(obj,Map)
             % This method initializes the neural
             % on the given polygon map
             % Syntax:
-            %       obj = initializeNeuralNet(obj,polyMap)
-            % Input:
-            %   polyMap:        A polygon map of the environment
+            %       obj = initializeNeuralNet(obj,Map)
+            % Input
+            %   Map:        A polygon map of the environment
             
             % Generate maps
-            obj.PolyMap = polyMap;
-            obj.N = round((polyMap.XWorldLimits(2) - polyMap.XWorldLimits(1)) * obj.Resolution);
-            obj.M = round((polyMap.YWorldLimits(2) - polyMap.YWorldLimits(1)) * obj.Resolution);
+            obj.Map = Map;
+            obj.N = round((Map.XWorldLimits(2) - Map.XWorldLimits(1)) * obj.Resolution);
+            obj.M = round((Map.YWorldLimits(2) - Map.YWorldLimits(1)) * obj.Resolution);
             obj.ObstacleMap = zeros(obj.N,obj.M);
-            stepSize = 1/obj.Resolution;
-            x_s = polyMap.XWorldLimits(1) + 0.5*stepSize;
-            for i=1:1:obj.N
-                y_s = polyMap.YWorldLimits(1) + 0.5*stepSize;
-                for j=1:1:obj.M
-                    if ~(inpolygon(x_s,y_s,polyMap.x,polyMap.y))
-                        obj.ObstacleMap(i,j) = 1;
+            if (isa(obj.Map,'binaryOccupancyMap'))
+                for i=1:1:obj.Map.GridSize(1)
+                    for j=1:1:obj.Map.GridSize(2)
+                        obj.ObstacleMap(i,j) = 1 - getOccupancy(obj.Map,[i,j],"grid");
                     end
-                    y_s = y_s + stepSize;
                 end
-                x_s = x_s + stepSize;
+            else
+                stepSize = 1/obj.Resolution;
+                x_s = Map.XWorldLimits(1) + 0.5*stepSize;
+                for i=1:1:obj.N
+                    y_s = Map.YWorldLimits(1) + 0.5*stepSize;
+                    for j=1:1:obj.M
+                        if ~(inpolygon(x_s,y_s,Map.x,Map.y))
+                            obj.ObstacleMap(i,j) = 1;
+                        end
+                        y_s = y_s + stepSize;
+                    end
+                    x_s = x_s + stepSize;
+                end
             end
             
             obj.Gradient = ones(obj.N, obj.M)-obj.ObstacleMap;
             for i = 1:1:obj.M
-                obj.Gradient(:,i) = obj.Gradient(:, i) .* (obj.G*(obj.M - i - (polyMap.YWorldLimits(2) - polyMap.YWorldLimits(1))));
+                obj.Gradient(:,i) = obj.Gradient(:, i) .* (obj.G*(obj.M - i - (Map.YWorldLimits(2) - Map.YWorldLimits(1))));
             end
             obj.Gradient = obj.Gradient + obj.M*obj.G;
             
@@ -104,8 +112,8 @@ classdef NNCCPP
 
             % Update external inputs
             coverageMap_tmp = coverageMap;
-            idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-            idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+            idx_x = ceil((pose(1) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+            idx_y = ceil((pose(2) - obj.Map.YWorldLimits(1)) * obj.Resolution);
             if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))
                 coverageMap_tmp(idx_x,idx_y) = 1;
             end
@@ -158,8 +166,8 @@ classdef NNCCPP
             X = X .* obj.Gradient;
             
             % Get the index according to the position of the vehicle
-            idx_x = ceil((pose(1) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-            idx_y = ceil((pose(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+            idx_x = ceil((pose(1) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+            idx_y = ceil((pose(2) - obj.Map.YWorldLimits(1)) * obj.Resolution);
             
             dec = -inf;
             % Go through all neighbours and decide where to go next
@@ -180,8 +188,8 @@ classdef NNCCPP
                             dec_tmp  = X(ii,jj) - obj.C * orientationDiff;
                             % update control input
                             if dec_tmp > dec
-                                obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.PolyMap.XWorldLimits(1);
-                                obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.PolyMap.YWorldLimits(1);
+                                obj.TargetPosition(1) = ((ii-0.5)/obj.Resolution) + obj.Map.XWorldLimits(1);
+                                obj.TargetPosition(2) = ((jj-0.5)/obj.Resolution) + obj.Map.YWorldLimits(1);
                                 dec = dec_tmp;
                             end
                         end

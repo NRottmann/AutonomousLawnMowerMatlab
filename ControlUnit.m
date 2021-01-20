@@ -85,7 +85,11 @@ classdef ControlUnit
             obj.Dt =  out.dt;
             
             out = get_config('coverageMap');
-            obj.Resolution = out.resolution;
+            if (isa(obj.Map,'binaryOccupancyMap'))
+                obj.Resolution = obj.Map.Resolution;
+            else
+                obj.Resolution = out.resolution;
+            end
             obj.Threshhold = out.threshhold;
             obj.WallFollow = out.wallFollow;
         end
@@ -303,16 +307,16 @@ classdef ControlUnit
             %
             
             % Allocate actual map estimate
-            obj.ClassParticleFilter = ParticleFilter(obj.EstPolyMap);
+            obj.ClassParticleFilter = ParticleFilter(obj.EstMap);
             % Get maximum number of iterations
             I = round(T/obj.Dt);
             % Initialize storage capacities and allocate pose
             path = zeros(3,I+1);
             path(:,1) = obj.Pose;
             estPath = path;
-            mapAbs = mapAbsolute(obj.PolyMap, obj.Resolution);
-            N = round((obj.PolyMap.XWorldLimits(2) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-            M = round((obj.PolyMap.YWorldLimits(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+            mapAbs = mapAbsolute(obj.Map, obj.Resolution);
+            N = round((obj.Map.XWorldLimits(2) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+            M = round((obj.Map.YWorldLimits(2) - obj.Map.YWorldLimits(1)) * obj.Resolution);
             ground = zeros(N, M);
             % Decide which mode
             if mode == 1
@@ -359,10 +363,10 @@ classdef ControlUnit
                 odometryData.DeltaR1 = 0; odometryData.DeltaT = 0; odometryData.DeltaR2 = 0; coverage = 0; i = 0;
                 % TODO: Add here choices
                 obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
-                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
+                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstMap);
                 while coverage < p
                     i = i + 1;
-                    disp(i*obj.Dt)
+                    % disp(i*obj.Dt)
                     % Step 1: Get sensor measurements
                     sensorData = obj.ClassGrassSensor.measure(path(:,i));
                     % Step 2: Get control input
@@ -377,7 +381,7 @@ classdef ControlUnit
                     % Step 6: Update Coverage Map
                     obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     % Coverage
-                    v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
+                    v = groundTruth(path(:,i), obj.Map, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
                     if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))
@@ -393,8 +397,8 @@ classdef ControlUnit
             elseif mode == 2
                 % TODO: Add here choices
                 obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
-                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstPolyMap);
-                obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstPolyMap);
+                obj.ClassCoverage = obj.ClassCoverage.initializeCoverageMap(obj.EstMap);
+                obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNeuralNet(obj.EstMap);
                 spread = 0;
                 relocating = false;
                 spreads = zeros(I, 1);
@@ -462,7 +466,7 @@ classdef ControlUnit
                         obj.ClassCoverage = obj.ClassCoverage.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,i+1));
                     end
                     % Coverage
-                    v = groundTruth(path(:,i), obj.PolyMap, obj.Resolution);
+                    v = groundTruth(path(:,i), obj.Map, obj.Resolution);
                     vx = v(1);
                     vy = v(2);
                     if ((vx>=1 && vx<=N) && (vy>=1 && vy<=M))

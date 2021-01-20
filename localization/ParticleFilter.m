@@ -12,7 +12,7 @@ classdef ParticleFilter
         Particles;                      % Array of particles with every
                                         % row is one particle and contains
                                         % [x; y; phi; weight]
-        PolyMap;                        % A map of the environment
+        Map;                            % A map of the environment
         CounterMeasurements;            % A counter for the measurements taken
         ParticlesMeasurements;          % Storage array for the measurements of the particles
         Measurements;                   % Storage array for the true measurements received by the real sensor 
@@ -36,7 +36,7 @@ classdef ParticleFilter
     end
     
     methods
-        function obj = ParticleFilter(polyMap)
+        function obj = ParticleFilter(map)
             % This is the constructor of the class
             % Syntax:
             %       obj = ParticleFilter(nParticles,polyMap,p0)
@@ -45,10 +45,10 @@ classdef ParticleFilter
             % Output:
           
             % Allocate Parameters
-            obj.PolyMap = polyMap;
+            obj.Map = map;
             
             % Initialize classes
-            obj.GrassSensor = GrassSensor(polyMap);
+            obj.GrassSensor = GrassSensor(map);
             obj.OdometryModel = OdometryModel;
 
             % Parameters
@@ -80,8 +80,8 @@ classdef ParticleFilter
                 error('Wrong number N_S for sensors used!')
             end
             
-            obj.N = round((obj.PolyMap.XWorldLimits(2) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-            obj.M = round((obj.PolyMap.YWorldLimits(2) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+            obj.N = round((obj.Map.XWorldLimits(2) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+            obj.M = round((obj.Map.YWorldLimits(2) - obj.Map.YWorldLimits(1)) * obj.Resolution);
             obj.ParticleCoverageMaps = zeros(obj.N_P , obj.N, obj.M);
             obj.CoverageMap = zeros(obj.N,obj.M);
         end
@@ -128,8 +128,8 @@ classdef ParticleFilter
                 for i = 1:1:obj.N_P
                     obj.Particles(:,i) = [pose(1); pose(2); ...
                                             pose(3); 1/obj.N_P];
-                    idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                    idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                    idx_x = ceil((obj.Particles(1,i) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.Map.YWorldLimits(1)) * obj.Resolution);
                     obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
                 end
             else
@@ -168,8 +168,8 @@ classdef ParticleFilter
                 % Move Particle, add noise
                 obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
                 if ~relocating && particleMap
-                    idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
-                    idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                    idx_x = ceil((obj.Particles(1,i) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.Map.YWorldLimits(1)) * obj.Resolution);
                     if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
                         obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
                     end

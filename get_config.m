@@ -69,7 +69,7 @@ switch caseString
     case 'planning'
         out.a = 10;                         % Passive decay rate
         out.b = 1;                          % Upper bound
-        out.d = 1000;                       % Lower bound
+        out.d = 1;                          % Lower bound
         out.e = 100;                        % Maximum Gain, for gradient
         out.c = 3.5;                        % Control gain
         out.threshhold = 0.9;               % threshhold for confidence of cell

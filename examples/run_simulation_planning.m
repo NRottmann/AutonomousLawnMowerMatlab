@@ -11,7 +11,8 @@ load(map);
 pose = [0.05; 0.05; 0];
 
 %% Initialize the control unit
-controlUnit = ControlUnit(polyMap,pose);
+% controlUnit = ControlUnit(polyMap,pose);
+controlUnit = ControlUnit(gridMap,pose);
 
 %% Complete Coverage with particle filter localization
 mode = 2;       % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
@@ -20,7 +21,7 @@ tic
 % first parameter: if mode with coverage, then the coverage to reach, else the time in seconds
 % second is the mode
 % third is if the NNCCPP should run with the particlemap or not
-[controlUnit,coverageResults] = controlUnit.completeCoverage(100, mode, particleMap); 
+[controlUnit,coverageResults] = controlUnit.completeCoverage(500, mode, particleMap); 
 t = toc
 coverageResults.time = t;
 coverageResults.polyMap = polyMap;

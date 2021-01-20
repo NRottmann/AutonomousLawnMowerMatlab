@@ -5,7 +5,7 @@ close all
 clc
 
 %% Generate the Map Points
-map_id = 8;
+map_id = 1;
 map_num = 100;
 
 x = cell(map_num,1);
@@ -72,7 +72,7 @@ polyMap = genPolyMap(x{map_id},y{map_id});
 figure
 plot(polyMap.x,polyMap.y)
 
-gridMap = genGridMap(polyMap,20);
+gridMap = genGridMap(polyMap,10);
 figure
 show(gridMap)
 
