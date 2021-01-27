@@ -63,18 +63,18 @@ switch caseString
         out.n_S = 2;                      	% Number sensors used, (1 or 2)
         out.thresholdResampling = 0.9;   	% Resampling treshold  
     case 'coverageMap'
-        out.resolution = 10;                % Resolution in cells per meter
+        out.resolution = 5;                % Resolution in cells per meter
         out.threshhold = 0.9;               % threshhold for confidence of cell
         out.wallFollow = 0.4;               % threshhold for wallfollowing since spread too high
     case 'planning'
         out.a = 10;                         % Passive decay rate
         out.b = 1;                          % Upper bound
         out.d = 1;                          % Lower bound
-        out.e = 100;                        % Maximum Gain, for gradient
-        out.c = 3.5;                        % Control gain
+        out.e = 100;                         % Maximum Gain, for gradient
+        out.c = 0.1;                        % Control gain
         out.threshhold = 0.9;               % threshhold for confidence of cell
-        out.dt = 0.01;                      % timestep parameter for neuralactivity
-        out.g = pi;                         % descent for gradient
+        out.dt = 0.001;                     % timestep parameter for neuralactivity
+        out.g = 0.5;                        % minimum gradient value
 end
 end
 

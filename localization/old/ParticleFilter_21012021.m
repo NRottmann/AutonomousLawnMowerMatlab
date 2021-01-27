@@ -5,7 +5,7 @@ classdef ParticleFilter
     %   ParticleFilter
     %
     % Nils Rottmann (Nils.Rottmann@rob.uni-luebeck.de)
-    % 21.01.2021
+    % 06.03.2019
     
     properties
         % Storage Variables
@@ -16,12 +16,18 @@ classdef ParticleFilter
         CounterMeasurements;            % A counter for the measurements taken
         ParticlesMeasurements;          % Storage array for the measurements of the particles
         Measurements;                   % Storage array for the true measurements received by the real sensor 
+        ParticleCoverageMaps;
+        CoverageMap;
+        N;                              % Total number of cells x-dimension
+        M;                              % Total number of cells y-dimension
+        Resolution;                     % Resolution of coverage map
         
         % Parameter
         N_P;                            % Number of particles used
         PoseVariance;                   % Variances for distributing the particles around an initial pose estimate
         N_M;                            % Number of measurements before updating the particles
         IncreaseNoise;                  % Factor which increases the noise of the odometry model for the particles
+        N_S;                            % Number sensors used, (1 or 2)
         ThresholdResampling;            % Threshold for resampling
         
         % Classes
@@ -33,9 +39,10 @@ classdef ParticleFilter
         function obj = ParticleFilter(map)
             % This is the constructor of the class
             % Syntax:
-            %       obj = ParticleFilter(map)
+            %       obj = ParticleFilter(nParticles,polyMap,p0)
             % Input:
-            %   map:    A map of the environment
+            %   polyMap:     	The map as polygon
+            % Output:
           
             % Allocate Parameters
             obj.Map = map;
@@ -50,17 +57,33 @@ classdef ParticleFilter
             obj.PoseVariance = out.poseVariance;
             obj.N_M = out.n_M;
             obj.IncreaseNoise = out.increaseNoise;
+            obj.N_S = out.n_S;
             obj.ThresholdResampling = out.thresholdResampling;
+            
+            out = get_config('coverageMap');
+            obj.Resolution = out.resolution;
             
             % Initialize Measurement Counter
             obj.CounterMeasurements = 0;
             
-            % Initialize Arrays for the particles
+            % Initialize Arrays
             obj.Particles = zeros(4, obj.N_P);
-            obj.ParticlesMeasurements{1} = zeros(obj.N_M,obj.N_P);
-            obj.Measurements{1} = zeros(obj.N_M,1);
-            obj.ParticlesMeasurements{2} = zeros(obj.N_M,obj.N_P);
-            obj.Measurements{2} = zeros(obj.N_M,1);   
+            if obj.N_S == 1
+                obj.ParticlesMeasurements{1} = zeros(obj.N_M,obj.N_P);
+                obj.Measurements{1} = zeros(obj.N_M,1);
+            elseif obj.N_S == 2
+                obj.ParticlesMeasurements{1} = zeros(obj.N_M,obj.N_P);
+                obj.Measurements{1} = zeros(obj.N_M,1);
+                obj.ParticlesMeasurements{2} = zeros(obj.N_M,obj.N_P);
+                obj.Measurements{2} = zeros(obj.N_M,1);   
+            else
+                error('Wrong number N_S for sensors used!')
+            end
+            
+            obj.N = round((obj.Map.XWorldLimits(2) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+            obj.M = round((obj.Map.YWorldLimits(2) - obj.Map.YWorldLimits(1)) * obj.Resolution);
+            obj.ParticleCoverageMaps = zeros(obj.N_P , obj.N, obj.M);
+            obj.CoverageMap = zeros(obj.N,obj.M);
         end
         
         function [obj] = initializeParticles(obj,pose,mode)
@@ -86,38 +109,45 @@ classdef ParticleFilter
                     obj.Particles(2,i) = normrnd(pose(2),obj.PoseVariance(2));
                     obj.Particles(3,i) = normrnd(pose(3),obj.PoseVariance(3));
                     obj.Particles(4,i) = 1/obj.N_P;
+                    idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                    obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
                 end
             elseif mode == 2
-                % Spread particles randomly over the whole field
-                dx = obj.Map.XWorldLimits(2) - obj.Map.XWorldLimits(1);
-                dy = obj.Map.YWorldLimits(2) - obj.Map.YWorldLimits(1);
+                dx = obj.PolyMap.XWorldLimits(2) - obj.PolyMap.XWorldLimits(1);
+                dy = obj.PolyMap.YWorldLimits(2) - obj.PolyMap.YWorldLimits(1);
                 for i = 1:1:obj.N_P
-                    obj.Particles(:,i) = [rand()*dx + obj.Map.XWorldLimits(1); ...
-                                          rand()*dy + obj.Map.YWorldLimits(1); ...
+                    obj.Particles(:,i) = [rand()*dx + obj.PolyMap.XWorldLimits(1); ...
+                                          rand()*dy + obj.PolyMap.YWorldLimits(1); ...
                                           rand()*2*pi; 1/obj.N_P];
+                    idx_x = ceil((obj.Particles(1,i) - obj.PolyMap.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.PolyMap.YWorldLimits(1)) * obj.Resolution);
+                    obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
                 end
             elseif mode == 3
-                % Set all particles to the exact same initial state
                 for i = 1:1:obj.N_P
                     obj.Particles(:,i) = [pose(1); pose(2); ...
                                             pose(3); 1/obj.N_P];
+                    idx_x = ceil((obj.Particles(1,i) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.Map.YWorldLimits(1)) * obj.Resolution);
+                    obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
                 end
             else
                 error('Wrong mode chosen!')
             end
 
             % Initialize measurement arrays for saving measurement history,
-            for i=1:1:2
+            for i=1:1:obj.N_S
                 obj.ParticlesMeasurements{i} = zeros(obj.N_M,obj.N_P);
                 obj.Measurements{i} = zeros(obj.N_M,1);
             end
         end
         
-        function obj = updateParticles(obj,sensorData,odometryData)
+        function obj = updateParticles(obj,sensorData,odometryData, relocating, particleMap)
             % This methods updates the particles from the particle filter
             % based on the measurements (odometry, sensorData)P
             % Syntax:
-            %       obj = update(obj,sensorData,odometryData)
+            %       obj = update(obj,odometryData,sensorData)
             % Input:
             %   obj:            Object of the Particle Filter class
             %   odometryData:   deltaR1, deltaT, deltaR2
@@ -132,41 +162,62 @@ classdef ParticleFilter
             
             % For all Particles, update them according to odometryData and
             % allocate weights according to measurement data, thereby we
-            % update only every N_S measurements
+            % update only every N
             obj.CounterMeasurements = obj.CounterMeasurements + 1;
             for i = 1:1:obj.N_P
                 % Move Particle, add noise
-                obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise); 
+                obj.Particles(1:3,i) = obj.OdometryModel.odometryPose(obj.Particles(1:3,i),true,obj.IncreaseNoise);
+                if ~relocating && particleMap
+                    idx_x = ceil((obj.Particles(1,i) - obj.Map.XWorldLimits(1)) * obj.Resolution);
+                    idx_y = ceil((obj.Particles(2,i) - obj.Map.YWorldLimits(1)) * obj.Resolution);
+                    if ((idx_x>=1 && idx_x<=obj.N) && (idx_y>=1 && idx_y<=obj.M))   % Check boundaries
+                        obj.ParticleCoverageMaps(i, idx_x, idx_y) = 1;
+                    end
+                end
                 % Simulate measurements based on the pose of the particles
                 sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
                 % Store measurements
-                obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
-                obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = sensorParticleData.left;
+                if obj.N_S == 1
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
+                elseif obj.N_S == 2
+                    obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
+                    obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = sensorParticleData.left;
+                else
+                    error('Wrong number of sensors chosen (n_S)');
+                end   
             end
 
             % Allocate real measurements to storage array
-            obj.Measurements{1}(obj.CounterMeasurements) = sensorData.right;
-            obj.Measurements{2}(obj.CounterMeasurements) = sensorData.left;
-            
+            if obj.N_S == 1
+                obj.Measurements{1}(obj.CounterMeasurements) = sensorData.right;
+            elseif obj.N_S == 2
+                obj.Measurements{1}(obj.CounterMeasurements) = sensorData.right;
+                obj.Measurements{2}(obj.CounterMeasurements) = sensorData.left;
+            end
             % If enough measurements have been taken, update weights for all particles
             if (obj.CounterMeasurements == obj.N_M)
-                obj.CounterMeasurements = 0;
+                    obj.CounterMeasurements = 0;
                 for i = 1:1:obj.N_P
                     % TODO: Find intelligent update strategies
-                    w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
-                                - mean(obj.ParticlesMeasurements{1}(:,i)));
-                    w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
-                                - mean(obj.ParticlesMeasurements{2}(:,i)));
-                    obj.Particles(4,i) = ((w1 + w2)/2) + 0.1;   
+                    if obj.N_S == 1
+                        obj.Particles(4,i) = 1 - abs(mean(obj.Measurements{1}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{1}(:,i)));
+                    elseif obj.N_S == 2
+                        w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{1}(:,i)));
+                        w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
+                                    - mean(obj.ParticlesMeasurements{2}(:,i)));
+                        obj.Particles(4,i) = ((w1 + w2)/2) + 0.1;
+                    end
                 end
             end
 
             % Normalize weights and calculate effective number of particles
             obj.Particles(4,:) = obj.Particles(4,:) / sum(obj.Particles(4,:));
-            N_eff_rel = (1 / sum(obj.Particles(4,:).^2)) / obj.N_P; 
+            N_eff = (1 / sum(obj.Particles(4,:).^2)) / obj.N_P;
 
-            % Resampling, do only if N_eff/N < threshold
-            if (N_eff_rel < obj.ThresholdResampling)
+            % Resampling, do only if N_eff < a*N
+            if (N_eff < obj.ThresholdResampling)
                 disp('resampling')
                 % Create Weighting vector
                 weightVec = zeros(obj.N_P+1,1);
@@ -178,16 +229,31 @@ classdef ParticleFilter
                 X(X > 1) = X(X > 1) - 1;
                 [numSamples,~] = histcounts(X,weightVec);
                 tempParticles = zeros(4,obj.N_P);
+                tempCoverageMaps = zeros(obj.N_P , obj.N, obj.M);
                 idx = 1;
                 for i=1:1:obj.N_P
                     for j=1:1:numSamples(i)
                         tempParticles(:,idx) = obj.Particles(:,i);
+                        if ~relocating && particleMap
+                            tempCoverageMaps(idx, :, :) = squeeze(obj.ParticleCoverageMaps(idx, :, :));
+                        end
                         idx = idx + 1;
                     end
                 end
                 % Allocate new Particles
                 obj.Particles = tempParticles;
+                if ~relocating && particleMap
+                    obj.ParticleCoverageMaps = tempCoverageMaps;
+                end
             end 
+            
+            if ~relocating && particleMap
+                obj.CoverageMap = zeros(obj.N,obj.M);
+                for i = 1:1:obj.N_P
+                    obj.CoverageMap = obj.CoverageMap + squeeze(obj.ParticleCoverageMaps(i,:,:));
+                end
+                obj.CoverageMap = obj.CoverageMap / obj.N_P;
+            end
         end
   
         function [pose,variance] = getPoseEstimate(obj)

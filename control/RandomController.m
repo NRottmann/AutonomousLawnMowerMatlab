@@ -61,7 +61,7 @@ classdef RandomController
                 SRmeas = 0;
             end
             obj.MeanSR = obj.MeanSR*0.9 + SRmeas*0.1;
-            
+         
             % Define output
             u = zeros(2,1);
             
