@@ -5,9 +5,9 @@ close all
 clc
 
 %% Define map and starting pose
-map = 'map_1.mat';
+map = 'map_10.mat';
 load(map);
-pose = [0.05; 0.05; 0];
+pose = [2.05; 0.05; 0];
 
 %% Initialize the control unit
 controlUnit = ControlUnit(gridMap,pose);
@@ -15,14 +15,19 @@ controlUnit = ControlUnit(gridMap,pose);
 %% Complete Coverage with particle filter localization
 
 reqCoverage = 0.9;           % Coverage in percentage
-maxTime = 5000;              % maximum time in seconds
-mode = 2;                   % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
+maxTime = 500;              % maximum time in seconds
+mode = 3;                   % Random Walk(1), NNCCPP(2), coverage with random(3), coverage with nnccpp(4), wallfollower(5)
 
 [controlUnit,results] = controlUnit.completeCoverage(reqCoverage,maxTime,mode); 
 
 %% Plot some results
 figure
+subplot(1,2,1)
 plot(results.path(1,:),results.path(2,:))
+title('true')
+subplot(1,2,2)
+plot(results.estPath(1,:),results.estPath(2,:))
+title('estimated')
 
 figure
 coverageMap = occupancyMap(results.coverageMap);

@@ -296,6 +296,7 @@ classdef ControlUnit
             %   mode:           Coverage mode
             %       1:          Random Walk (for comparison)
             %       2:          NNCCPP (known position)
+            %       3:          NNCCPP (estimated position)
             % Output:
             %   results:        Results of the CCPP approach
             %
@@ -308,8 +309,9 @@ classdef ControlUnit
             path(:,1) = obj.Pose;
             estPath = path;
             
-%             % Allocate current map estimate
-%             obj.ClassParticleFilter = ParticleFilter(obj.EstMap);
+            % Initialize particle filter with current map
+            obj.ClassParticleFilter = ParticleFilter(obj.EstMap);
+          
 %             % Get maximum number of iterations
 %             I = round(T/obj.Dt);
 %             % Initialize storage capacities and allocate pose
@@ -341,8 +343,10 @@ classdef ControlUnit
                     [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,counter), motionData);
                     % Step 5: Update Coverage Map
                     obj.ClassNNCCPP = obj.ClassNNCCPP.updateCoverageMap(path(:,counter+1),path(:,counter+1));
-                    % Step 6: Count up
+                    % Step 6: Count up and allocate coverage
                     counter = counter + 1;
+                    coverage = obj.ClassNNCCPP.TotalCoverage;
+                    disp(coverage)
                     disp(counter*obj.Dt)
                 end
             
@@ -366,7 +370,8 @@ classdef ControlUnit
                     % Step 6: Count up and allocate coverage
                     counter = counter + 1;
                     coverage = obj.ClassNNCCPP.TotalCoverage;
-                    % disp(counter*obj.Dt)
+                    disp(coverage)
+                    disp(counter*obj.Dt)
                     
                     % disp(targetPosition)
 %                     figure(1)
@@ -374,6 +379,57 @@ classdef ControlUnit
 %                     drawnow
                 end
                 
+            elseif mode == 3
+                % Initialize particles exactly at starting pose (mode 3)
+                obj.ClassParticleFilter = obj.ClassParticleFilter.initializeParticles(path(:,1),3);
+                % Initialize odometry
+                odometryData.DeltaR1 = 0; odometryData.DeltaT = 0; odometryData.DeltaR2 = 0;
+                % Initialize coverage map
+                obj.ClassNNCCPP = obj.ClassNNCCPP.initializeNNCCPP(obj.EstMap);
+                % Set relocation flag
+                relocate = false;
+                % Initialize counter and coverage
+                counter = 1; coverage = 0;
+                while (counter <= maxIter && coverage <= reqCoverage)
+                    % Step 1: Get sensor measurements based on real
+                    % position
+                    sensorData = obj.ClassGrassSensor.measure(path(:,counter));
+                    % Step 1: Calculate target pose based on estimated pose
+                    [obj.ClassNNCCPP,targetPosition] = obj.ClassNNCCPP.planStep(estPath(:,counter));
+                    
+                    if (relocate)
+                        [obj.ClassWallFollower,u] = obj.ClassWallFollower.wallFollowing(sensorData,0);
+                    else         
+                        % Step 2: Get control input based on target position
+                        % and estimated pose
+                        [obj.ClassPDController,u] = obj.ClassPDController.pdControl(estPath(1:2,counter),[0;0],targetPosition,[0;0],estPath(3,counter),0);
+                    end
+                    
+                    % Step 3: Move Robot and store positions
+                    [path(:,counter+1),motionData] = obj.ClassKinematicModel.kinModel(path(:,counter), u, true);
+                    % Step 4: Get odometry data
+                    [obj.ClassOdometryModel,odometryData] = obj.ClassOdometryModel.odometryData(path(:,counter), motionData);
+                    % Step 5: Update Particle Filter
+                    obj.ClassParticleFilter = obj.ClassParticleFilter.updateParticles(sensorData,odometryData);
+                    % Step 6: Get Parrticle Filter pose estimate
+                    [estPath(:,counter+1),sigma] = obj.ClassParticleFilter.getPoseEstimate();
+                    % Step 5: Update Coverage Map
+                    obj.ClassNNCCPP = obj.ClassNNCCPP.updateCoverageMap(obj.ClassParticleFilter.Particles,estPath(:,counter+1));
+                    
+                    if (mean(sigma) > 0.2 && relocate == false)
+                        relocate = true;
+                        obj.ClassWallFollower.Mode = 0;
+                    elseif (mean(sigma) < 0.1)
+                        relocate = false;
+                    end
+                    
+                    % Step 6: Count up and allocate coverage
+                    counter = counter + 1;
+                    coverage = obj.ClassNNCCPP.TotalCoverage;
+%                     disp(coverage)
+%                     disp(counter*obj.Dt)
+                    disp(mean(sigma))
+                end
 %             elseif mode == 3
 %                 p = T;
 %                 if T >=1

@@ -151,16 +151,18 @@ classdef NNCCPP
                 % Update coveragemap from new particles
                 for i=1:1:n
                     ij = world2grid(obj.Map,[particles(1,i) particles(2,i)]);
-                    occVal = obj.CoverageMap(ij(1),ij(2));
-                    diffOccVal = (1/n) * (0.999 - occVal);
-                    
-                    if (obj.ObstacleMap(ij(1),ij(2)) == 0)
-                        obj.TotalCoverage = obj.TotalCoverage + (diffOccVal/obj.TotalCells2Cover);
-                        disp(obj.TotalCoverage)
+                    if ((ij(1) >= 1 && ij(1) <= obj.Map.GridSize(1)) && ...
+                            (ij(2) >= 1 && ij(2) <= obj.Map.GridSize(2)))
+                        occVal = obj.CoverageMap(ij(1),ij(2));
+                        diffOccVal = (1/n) * (0.999 - occVal);
+
+                        if (obj.ObstacleMap(ij(1),ij(2)) == 0)
+                            obj.TotalCoverage = obj.TotalCoverage + (diffOccVal/obj.TotalCells2Cover);
+                        end
+
+                        occVal = occVal + diffOccVal;
+                        obj.CoverageMap(ij(1),ij(2)) = occVal;
                     end
-                    
-                    occVal = occVal + diffOccVal;
-                    obj.CoverageMap(ij(1),ij(2)) = occVal;
                 end
             end
         end

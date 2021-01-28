@@ -5,7 +5,7 @@ close all
 clc
 
 %% Generate the Map Points
-map_id = 1;
+map_id = 10;
 map_num = 100;
 
 x = cell(map_num,1);
@@ -60,11 +60,15 @@ y{7} = [0 0 1.5 1.5 0 0 1.5 1.5 0 0 5 5 3.5 3.5 7 7 5.5 5.5 10.5 10.5 9 9 10.5 1
 x{8} = [0 21 21 17 14 14 15 15 14 14 5 5 3 3 5 5 0 0];
 y{8} = [0 0 21 21 17 14 13 9 7 6 6 8 8 11 11 17 17 0];
 
+% Map 9:
+x{9} = [3 9 9 6 6 3 3 0 0 3 3];
+y{9} = [0 0 7 7 4 4 7 7 2 2 0];
+
 % Map 10-19: Small to large
-multiplier = linspace(1,10,10);
-for i=10:1:19
-    x{i} = multiplier(i-9) * x{1};
-    y{i} = multiplier(i-9) * y{1};
+multiplier = [0.5 1 2];
+for i=10:1:12
+    x{i} = multiplier(i-9) * x{9};
+    y{i} = multiplier(i-9) * y{9};
 end
 
 %% Generate poly map and store it

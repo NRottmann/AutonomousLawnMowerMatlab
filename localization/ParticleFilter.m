@@ -140,8 +140,8 @@ classdef ParticleFilter
                 % Simulate measurements based on the pose of the particles
                 sensorParticleData = obj.GrassSensor.measure(obj.Particles(1:3,i));
                 % Store measurements
-                obj.ParticlesMeasurements{1}(obj.CounterMeasurements,:) = sensorParticleData.right;
-                obj.ParticlesMeasurements{2}(obj.CounterMeasurements,:) = sensorParticleData.left;
+                obj.ParticlesMeasurements{1}(obj.CounterMeasurements,i) = sensorParticleData.right;
+                obj.ParticlesMeasurements{2}(obj.CounterMeasurements,i) = sensorParticleData.left;
             end
 
             % Allocate real measurements to storage array
@@ -153,11 +153,17 @@ classdef ParticleFilter
                 obj.CounterMeasurements = 0;
                 for i = 1:1:obj.N_P
                     % TODO: Find intelligent update strategies
-                    w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
-                                - mean(obj.ParticlesMeasurements{1}(:,i)));
-                    w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
-                                - mean(obj.ParticlesMeasurements{2}(:,i)));
-                    obj.Particles(4,i) = ((w1 + w2)/2) + 0.1;   
+%                     w1 = 1 - abs(mean(obj.Measurements{1}(:)) ...
+%                                 - mean(obj.ParticlesMeasurements{1}(:,i)));
+%                     w2 = 1 - abs(mean(obj.Measurements{2}(:)) ...
+%                                 - mean(obj.ParticlesMeasurements{2}(:,i)));
+%                     obj.Particles(4,i) = ((w1 + w2)/2) + 0.1;   
+                    if (obj.Measurements{1} == obj.ParticlesMeasurements{1}(1,i) && ...
+                            obj.Measurements{2} == obj.ParticlesMeasurements{2}(1,i))
+                        obj.Particles(4,i) = 0.9;
+                    else
+                        obj.Particles(4,i) = 0.1;
+                    end
                 end
             end
 
@@ -190,7 +196,7 @@ classdef ParticleFilter
             end 
         end
   
-        function [pose,variance] = getPoseEstimate(obj)
+        function [pose,sigma] = getPoseEstimate(obj)
             % This methods gives back a pose estimate
             % Syntax:
             %       [pose,variance] = getPoseEstimate(obj)
@@ -200,7 +206,7 @@ classdef ParticleFilter
             %   pose:           The pose estimate
             %   variance:       The variance for the given pose estimate
             pose = mean(obj.Particles(1:3,1:obj.N_P),2)';
-            variance = std(obj.Particles(1:3,1:obj.N_P),0,2)';
+            sigma = std(obj.Particles(1:3,1:obj.N_P),0,2)';
         end
     end
 end

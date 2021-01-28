@@ -17,8 +17,8 @@ switch caseString
         out.v_max = 0.6;
         out.w_max = 0.3;
     case 'Sensor'
-        out.posRight = [0.265; -0.09];   
-        out.posLeft = [0.265; 0.09];
+        out.posRight = [0.265; -0.1];   
+        out.posLeft = [0.265; 0.1];
         % Noise of the sensor, 0 means no noise, 1 means totally random
         out.noise = 0.0;                   
     case 'kinModelNoise'  
@@ -61,7 +61,7 @@ switch caseString
         out.n_M = 1;                        % Measure n_M times before updating weights of the particle filter
         out.increaseNoise = 1;            	% Factor which increases the noise of the odometry model for the particles
         out.n_S = 2;                      	% Number sensors used, (1 or 2)
-        out.thresholdResampling = 0.9;   	% Resampling treshold  
+        out.thresholdResampling = 0.7;   	% Resampling treshold  
     case 'coverageMap'
         out.resolution = 5;                % Resolution in cells per meter
         out.threshhold = 0.9;               % threshhold for confidence of cell
