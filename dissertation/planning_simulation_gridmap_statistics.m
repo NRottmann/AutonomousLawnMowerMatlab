@@ -55,6 +55,6 @@ end
 
 %% Get all parameters and save the results
 [config] = getCompleteConfig();
-save('coverageStatistics','results','config')
+save('coverageStatistics','results','config','reqCoverage','maxTime')
 
 
