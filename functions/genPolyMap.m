@@ -24,5 +24,7 @@ for i=1:1:length(polyMap.x)-1
     polyMap.Circumference = polyMap.Circumference + norm(p2-p1);
 end
 
+polyMap.Area = polyarea(x,y);
+
 end
 

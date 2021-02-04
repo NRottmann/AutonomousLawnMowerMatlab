@@ -63,9 +63,10 @@ switch caseString
         out.n_S = 2;                      	% Number sensors used, (1 or 2)
         out.thresholdResampling = 0.7;   	% Resampling treshold  
     case 'coverageMap'
-        out.resolution = 5;                % Resolution in cells per meter
+        out.resolution = 5;                 % Resolution in cells per meter (Integer)
         out.threshhold = 0.9;               % threshhold for confidence of cell
         out.wallFollow = 0.4;               % threshhold for wallfollowing since spread too high
+        out.divider = 3;                    % Divider for area sammpling resolution (Integer)
     case 'planning'
         out.a = 10;                         % Passive decay rate
         out.b = 1;                          % Upper bound

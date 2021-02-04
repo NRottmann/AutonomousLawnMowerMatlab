@@ -12,17 +12,21 @@ classdef NNCCPP
         % Maps
         Map;                % A map of the world (Occupancy Grid)
         CoverageMap;        % A matrix which shows the coverage of the area
+        TrueCoverageMap;    % A mattrix representing the true coverage
         ObstacleMap;        % A matrix which shows the obstacles in the area
+        AreaSammplingMap;
         
         % Coverage Values
         TotalCoverage;      % The current total coverage amount
+        TrueTotalCoverage;  % The current true total coverage
         TotalCells2Cover;   % The total number of cells which have to be covered  
         
         % Pose
-        PoseID;             % Pose estimate map ids
+        EstPoseID;          % Pose estimate map ids
         
         % Parameters
         Resolution;         % The map resolution
+        Divider;            % Divider for the map resolution if area sampling
              
         % Neural Net Matrices
         NeuralActivity;     % Matrix with values from -D (lower bound) and +B (upper bound)
@@ -41,7 +45,7 @@ classdef NNCCPP
         Threshhold;         % Threshhold for the coverageMap
         G;                  % Descent of the gradient
 
-        Dt;                 % Step time   
+        Dt;                 % Step time
     end
     
     methods
@@ -51,7 +55,7 @@ classdef NNCCPP
             obj.Resolution = out.resolution;
             
             % Initialize Pose estimate
-            obj.PoseID = [inf inf];
+            obj.EstPoseID = [inf inf];
             
             % Constructor
             out = get_config('planning');
@@ -66,9 +70,10 @@ classdef NNCCPP
             
             out = get_config('coverageMap');
             obj.Resolution = out.resolution;
+            obj.Divider = out.divider;
             
             % The filter representing the weights
-            obj.Filter = [sqrt(2) 1 sqrt(2); 1 0 1; sqrt(2) 1 sqrt(2)];
+            obj.Filter = [1/sqrt(2) 1 1/sqrt(2); 1 0 1; 1/sqrt(2) 1 1/sqrt(2)];
             
         end
         
@@ -113,8 +118,24 @@ classdef NNCCPP
                 end
             end
             
+            % Generate area sampling map
+            obj.AreaSammplingMap = binaryOccupancyMap(map.XWorldLimits(2) - map.XWorldLimits(1), ...
+                                map.YWorldLimits(2) - map.YWorldLimits(1),obj.Resolution*obj.Divider);          
+            obj.AreaSammplingMap.GridLocationInWorld(1) = map.XWorldLimits(1);
+            obj.AreaSammplingMap.GridLocationInWorld(2) = map.YWorldLimits(1);
+            % Set map information
+            for i=1:1:obj.AreaSammplingMap.GridSize(1)
+                for j=1:1:obj.AreaSammplingMap.GridSize(2)
+                    setOccupancy(obj.AreaSammplingMap,[i j],getOccupancy(map,grid2world(obj.AreaSammplingMap,[i j])),"grid");
+                end
+            end
+            
+            % Generate true coverage map
+            obj.TrueCoverageMap = zeros(obj.Map.GridSize);
+            
             % Set total coverage to zero
             obj.TotalCoverage = 0;
+            obj.TrueTotalCoverage = 0;
             
             % Iniitialize Neural Net matrices
             obj.NeuralActivity = zeros(obj.Map.GridSize);
@@ -141,9 +162,9 @@ classdef NNCCPP
             estPoseID = world2grid(obj.Map,[estPose(1) estPose(2)]);
             
             % Only update if robot moved to next cell
-            if (~isequal(estPoseID,obj.PoseID)) 
+            if (~isequal(estPoseID,obj.EstPoseID)) 
                 
-                obj.PoseID = estPoseID;
+                obj.EstPoseID = estPoseID;
                 
                 % Get number of particles
                 n = length(particles(1,:));
@@ -154,7 +175,7 @@ classdef NNCCPP
                     if ((ij(1) >= 1 && ij(1) <= obj.Map.GridSize(1)) && ...
                             (ij(2) >= 1 && ij(2) <= obj.Map.GridSize(2)))
                         occVal = obj.CoverageMap(ij(1),ij(2));
-                        diffOccVal = (1/n) * (0.999 - occVal);
+                        diffOccVal = (1/n) * (1 - occVal);
 
                         if (obj.ObstacleMap(ij(1),ij(2)) == 0)
                             obj.TotalCoverage = obj.TotalCoverage + (diffOccVal/obj.TotalCells2Cover);
@@ -165,6 +186,26 @@ classdef NNCCPP
                     end
                 end
             end
+        end
+        
+        function obj = updateTrueCoverageMap(obj,pose)
+            % This method updates the coverage map given the current
+            % particle distribution
+            % Syntax:
+            %       obj = initializeCoverageMap(particles, estPose)
+            % Input:
+            %   particles:          Particles form the particle filter
+            %   estPose:            Current pose estimate
+            
+            ij = world2grid(obj.Map,[pose(1) pose(2)]);
+            occVal = obj.TrueCoverageMap(ij(1),ij(2));
+            diffOccVal = (1 - occVal);
+            if (obj.ObstacleMap(ij(1),ij(2)) == 0)
+                obj.TrueTotalCoverage = obj.TrueTotalCoverage + (diffOccVal/obj.TotalCells2Cover);
+            end
+            occVal = occVal + diffOccVal;
+            obj.TrueCoverageMap(ij(1),ij(2)) = occVal;
+            
         end
            
         function [obj] = updateNeuralActivity(obj,tmpCoverageMap)
@@ -261,6 +302,18 @@ classdef NNCCPP
                     end
                 end
             end
+        end
+        
+        function obj = areaSampling(obj,pose,pastPose)
+            % Function for generating an area sampling approach. Therefore,
+            % we assume that the swiped area of a pixel is a rectangular.
+            % We first enlarge the resolution of the grid by the factor F
+            % and then check which cells are occupied. Then we reduce the
+            % resolution back to the actual one.
+            
+            v = pose(1:2) - pastPose(1:2);
+            
+            
         end
     end
 end

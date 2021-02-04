@@ -173,7 +173,7 @@ classdef ParticleFilter
 
             % Resampling, do only if N_eff/N < threshold
             if (N_eff_rel < obj.ThresholdResampling)
-                disp('resampling')
+                % disp('resampling')
                 % Create Weighting vector
                 weightVec = zeros(obj.N_P+1,1);
                 for i=1:1:obj.N_P
